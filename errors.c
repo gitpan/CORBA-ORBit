@@ -254,9 +254,16 @@ porbit_system_except (const char *repoid, CORBA_unsigned_long minor,
     int i;
     SV *tmp_sv;
     char *status_str;
+    char *tmp_str = NULL;
     int count;
     dSP;
 
+    /* HACK: ORBit omits the omg.org from repoid names */
+    if (strncmp (repoid, "IDL:CORBA", 9) == 0) {
+	tmp_str = g_strconcat ("IDL:omg.org/", repoid + 4, NULL);
+	repoid = tmp_str;
+    }
+    
     for (i=0; i<num_system_exceptions; i++) {
 	if (!strcmp(repoid, system_exceptions[i].repoid)) {
 	    pkg = system_exceptions[i].package;
@@ -264,6 +271,9 @@ porbit_system_except (const char *repoid, CORBA_unsigned_long minor,
 	    break;
 	}
     }
+    if (tmp_str)
+	g_free (tmp_str);
+    
     if (!pkg) {
 	pkg = system_exceptions[0].package;
 	text = system_exceptions[0].text;

@@ -76,4 +76,14 @@ try {
     print STDERR "    (I need $e->{overdraft} more)\n";
 };
 
+my $counter = $account->counter();
+print join(" ", map { $counter->next } (1..10)), "\n";
+
+$counter->destroy();
+try {
+    $counter->next;
+} catch CORBA::Exception with {
+    print "Caught $_[0], while counting with a destroyed counter\n";
+};
+
 print "Successful completion\n"

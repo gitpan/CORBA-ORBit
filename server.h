@@ -37,6 +37,11 @@ SV *              porbit_servant_to_sv    (PortableServer_Servant servant);
  */
 PortableServer_Servant porbit_sv_to_servant    (SV            *perl_obj);
 
+/* Ref and unref the Perl object corresponding to a servant
+ */
+void porbit_servant_ref   (PortableServer_Servant servant);
+void porbit_servant_unref (PortableServer_Servant servant);
+
 PORBitServant    *porbit_servant_create   (SV                *perlobj,
 					   CORBA_Environment *ev);
 void              porbit_servant_destroy  (PORBitServant      *servant,

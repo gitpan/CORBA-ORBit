@@ -1,3 +1,53 @@
+Sat Mar 25 14:47:54 2000  Owen Taylor  <otaylor@redhat.com>
+
+	* Released 0.4.0
+
+Fri Mar 24 12:41:54 2000  Owen Taylor  <otaylor@redhat.com>
+
+	* errors.c (porbit_system_except): Deal with the fact
+	that ORBit uses IDL:CORBA in its system exception names instead
+	of IDL:omg.org/CORBA.
+
+	* demarshal.c (porbit_get_exception): Hack around incorrect
+	marshalling of system exceptions by ORBit.
+
+	* marshal.c (put_objref): Check outgoing object references
+	against the typecode. There are some problems here if
+	the object we are marshalling is not a local object and
+	we don't have compete type information. Perhaps this
+	check should only be for local object references?
+
+	* server.c: Add more detailed information in warning
+	messages about the location where errors occur.
+
+Wed Mar 22 15:44:51 2000  Owen Taylor  <otaylor@redhat.com>
+
+        * Released 0.3.9
+	
+	* ORBit.pm: Temporarily disable dereferencing 
+	ORB, POA, POAManager, since ORBit is broken when 
+	doing so.
+
+	* server client: Add test for creating and destroying servants
+	on the fly.
+
+	* ORBit.xs server.[ch]: Remove pin table, which was
+	no longer used for useful purposes. (We were already
+	storing the information in the servant.) Implicitely
+	reference active servants so it isn't necessary for
+	for applications to keep references to such servants
+	themselves.
+
+Tue Mar 14 11:16:35 2000  Owen Taylor  <otaylor@redhat.com>
+
+	* idl.c (porbit_parse_idl_file): Define __ORBIT_IDL__
+	when parsing, to allow people to #define around 
+	libIDL pecularities in IDL files. (Michael Meeks)
+
+	* idl.c (do_operation): Advance properly to the next
+	exception when iterating over exceptions. (Pointed
+	out by Jason Tackaberry.)
+
 Sun Jan  2 19:52:13 2000  Owen Taylor  <otaylor@redhat.com>
 
 	* Released 0.3.0

@@ -13,12 +13,12 @@
 static CORBA_boolean
 buf_getn (GIOPRecvBuffer *buf, void *dest, size_t n)
 {
+    buf->cur = ALIGN_ADDRESS(buf->cur, n);
     if (RECV_BUFFER_LEFT(buf) < n) {
 	warn ("incomplete message received");
 	return CORBA_FALSE;
     }
     
-    buf->cur = ALIGN_ADDRESS(buf->cur, n);
     buf->decoder(dest, (buf->cur), n);
     buf->cur = ((guchar *)buf->cur) + n;
 
@@ -332,8 +332,19 @@ porbit_get_exception (GIOPRecvBuffer *buf, CORBA_TypeCode tc,
     } else {
 	/* System exception */
 
-	if (!buf_getn (buf, &minor, sizeof (&minor)) ||
-	    !buf_getn (buf, &completion_status, sizeof (&completion_status))) {
+	/* HACK: Older ORBit versions are buggy and omit the minor */
+	buf->cur = ALIGN_ADDRESS(buf->cur, sizeof(&minor));
+	if (RECV_BUFFER_LEFT(buf) >= sizeof(&completion_status) &&
+	    RECV_BUFFER_LEFT(buf) < sizeof(&minor) + sizeof(&completion_status)) {
+	    minor = 0;
+	} else {
+	    if (!buf_getn (buf, &minor, sizeof (&minor))) {
+		warn ("Error demarshalling system exception");
+		return NULL;
+	    }
+	}
+
+	if (!buf_getn (buf, &completion_status, sizeof (&completion_status))) {
 	    warn ("Error demarshalling system exception");
 	    return NULL;
 	}

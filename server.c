@@ -23,13 +23,6 @@ struct _PORBitParam {
 #  endif
 #endif
 
-/* A table connecting PortableServer::Servant's to the 
- * Perl servers. We store the objects here as IV's, not as SV's,
- * since we don't hold a reference on the object, and need to
- * remove them from here when reference count has dropped to zero
- */
-static HV *servant_table = 0;
-
 #define INSTVARS_MAGIC 0x18981972
 
 /* Magic (adopted from DBI) to attach InstVars invisibly to perlobj
@@ -90,13 +83,6 @@ porbit_instvars_destroy (PORBitInstVars *instvars)
     
     assert (instvars->magic == INSTVARS_MAGIC);
 
-    if (servant_table) {
-	char buf[24];
-
-	sprintf(buf, "%ld", (IV)instvars->servant);
-	hv_delete(servant_table, buf, strlen(buf), G_DISCARD);
-    }
-
     porbit_servant_destroy (instvars->servant, &ev);
     if (ev._major != CORBA_NO_EXCEPTION) {
 	warn ("error while destroying servant");
@@ -107,20 +93,14 @@ porbit_instvars_destroy (PORBitInstVars *instvars)
      */
 }
 
-/* Find or create a Perl object for this CORBA object.
+/* Find a Perl object for this CORBA object.
  */
 SV *
 porbit_servant_to_sv (PortableServer_Servant servant)
 {
     if (servant) {
-	char buf[24];
-	sprintf(buf, "%ld", (IV)servant);
-	
-	if (servant_table) {
-	    SV **svp = hv_fetch (servant_table, buf, strlen(buf), 0);
-	    if (svp)
-		return newRV_inc((SV *)SvIV(*svp));
-	}
+	PORBitServant *porbit_servant = (PORBitServant *)servant;
+	return newRV_inc(porbit_servant->perlobj);
     }
     
     /* FIXME: memory leaks? */
@@ -177,7 +157,7 @@ porbit_get_orbit_servant (SV *perlobj)
 }
 
 PortableServer_Servant
-porbit_sv_to_servant    (SV *perlobj)
+porbit_sv_to_servant (SV *perlobj)
 {
     PORBitInstVars *iv;
 
@@ -190,20 +170,25 @@ porbit_sv_to_servant    (SV *perlobj)
 	croak ("Argument is not a PortableServer::ServantBase");
 
     if (!iv) {
-	char buf[24];
-
 	iv = porbit_instvars_add (perlobj);
-
 	iv->servant = porbit_get_orbit_servant (perlobj);
-
-	if (!servant_table)
-	    servant_table = newHV();
-	
-	sprintf(buf, "%ld", (IV)iv->servant);
-	hv_store (servant_table, buf, strlen(buf), newSViv((IV)SvRV(perlobj)), 0);
     }
 
     return iv->servant;
+}
+
+void
+porbit_servant_ref (PortableServer_Servant servant)
+{
+    PORBitServant *porbit_servant = (PORBitServant *)servant;
+    SvREFCNT_inc (porbit_servant->perlobj);
+}
+
+void
+porbit_servant_unref (PortableServer_Servant servant)
+{
+    PORBitServant *porbit_servant = (PORBitServant *)servant;
+    SvREFCNT_dec (porbit_servant->perlobj);
 }
 
 PortableServer_ObjectId *
@@ -248,8 +233,15 @@ porbit_objectid_to_sv (PortableServer_ObjectId *oid)
  * Stub calling code *
  *********************/
 
+/* Utility function used for error reporting */
+static char *
+servant_classname (PORBitServant *servant)
+{
+    return HvNAME(SvSTASH(servant->perlobj));
+}
+
 static SV *
-porbit_call_method (const char *name, int return_items)
+porbit_call_method (PORBitServant *servant, const char *name, int return_items)
 {
     int return_count;
     
@@ -277,7 +269,8 @@ porbit_call_method (const char *name, int return_items)
 	    return newSVsv(GvSV(throwngv));
 	    
 	} else {
-	    warn ("Error occured in implementation of '%s': %s", name, SvPV(ERRSV, PL_na));
+	    warn ("Error occured in implementation '%s::%s': %s",
+		servant_classname (servant), name, SvPV(ERRSV, PL_na));
 	    return porbit_system_except("IDL:omg.org/CORBA/UNKNOWN:1.0", 
 					0, CORBA_COMPLETED_MAYBE);
 	}
@@ -294,7 +287,8 @@ porbit_call_method (const char *name, int return_items)
 	}
 	
     } else if (return_count != return_items) {
-	warn("Implementation of '%s' should return %d items", name, return_items);
+	warn("Implementation '%s::%s' should return %d items",
+	    servant_classname (servant), name, return_items);
 	
 	while (return_count--)
 	    (void)POPs;
@@ -367,7 +361,7 @@ call_implementation (PORBitServant           *servant,
     }
     
     PUTBACK;
-    error_sv = porbit_call_method (name, return_items);
+    error_sv = porbit_call_method (servant, name, return_items);
     if (error_sv)
 	goto cleanup;
 
@@ -404,7 +398,7 @@ call_implementation (PORBitServant           *servant,
 	}
 	
 	if (!success) {
-	    warn ("Error marshalling result");
+	    warn ("Error marshalling result of call to %s::%s", servant_classname (servant), name);
 	    error_sv = porbit_system_except("IDL:omg.org/CORBA/MARSHAL:1.0", 
 					    0, CORBA_COMPLETED_YES);
 	    goto cleanup;
@@ -430,7 +424,8 @@ call_implementation (PORBitServant           *servant,
 	
 	exception_level++;
 	if (exception_level > 2) {
-	    warn ("Panic: recursion marshalling error");
+	    warn ("Panic: recursion marshalling error from %s::%s",
+		  servant_classname (servant), name);
 	    SvREFCNT_dec (error_sv);
 	    
 	    goto out;
@@ -441,7 +436,7 @@ call_implementation (PORBitServant           *servant,
 	else if (sv_derived_from(error_sv, "CORBA::SystemException"))
 	    type = CORBA_SYSTEM_EXCEPTION;
 	else {
-	    warn ("Exception must derive from CORBA::UserException or CORBA::SystemException");
+	    warn ("Exception thrown from %s::%s must derive from CORBA::UserException or CORBA::SystemException", servant_classname (servant), name);
 	    SvREFCNT_dec (error_sv);
 	    error_sv = porbit_system_except("IDL:omg.org/CORBA/UNKNOWN:1.0", 
 					    0, CORBA_COMPLETED_MAYBE);

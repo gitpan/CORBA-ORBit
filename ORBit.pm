@@ -15,15 +15,18 @@ require Carp;
 
 @ISA = qw(DynaLoader);
 
-$VERSION = '0.3.0';
+$VERSION = '0.4.0';
 
 bootstrap CORBA::ORBit $VERSION;
 
-@CORBA::ORB::ISA = qw(CORBA::ORBit::RootObject);
 @CORBA::Object::ISA = qw(CORBA::ORBit::RootObject);
 @CORBA::TypeCode::ISA = qw(CORBA::ORBit::RootObject);
-@PortableServer::POA::ISA = qw(CORBA::ORBit::RootObject);
-@PortableServer::POAManager::ISA = qw(CORBA::ORBit::RootObject);
+
+# ORBit does not properly reference count the following
+#
+# @CORBA::ORB::ISA = qw(CORBA::ORBit::RootObject);
+# @PortableServer::POA::ISA = qw(CORBA::ORBit::RootObject);
+# @PortableServer::POAManager::ISA = qw(CORBA::ORBit::RootObject);
 
 my $IDL_PATH;
 

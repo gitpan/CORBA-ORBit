@@ -2,6 +2,7 @@
 
 #include "errors.h"
 #include "exttypes.h"
+#include "interfaces.h"
 #include "porbit-perl.h"
 #include "types.h"
 
@@ -413,15 +414,22 @@ static CORBA_boolean
 put_objref (GIOPSendBuffer *buf, CORBA_TypeCode tc, SV *sv)
 {
     CORBA_Object obj;
-    
-    /* FIXME: check inheritance
-     */
+    PORBitIfaceInfo *info = porbit_find_interface_description (tc->repo_id);
 
+    if (!info)
+	croak ("Attempt to marshall unknown object type");
+    
     if (!SvOK(sv))
 	obj = CORBA_OBJECT_NIL;
     else {
-	if (!sv_derived_from (sv, "CORBA::Object")) {
-	    warn ("Value is not a CORBA::Object");
+	/* FIXME: This check isn't right at all if the object
+	 * is of an unknown type. (Or if the type we have
+	 * for the object is not the most derived type.)
+	 * We should call the server side ISA and then
+	 * downcast in this case?
+	 */
+	if (!sv_derived_from (sv, info->pkg)) {
+	    warn ("Value is not a %s", info->pkg);
 	    return CORBA_FALSE;
 	}
 

@@ -807,6 +807,7 @@ activate_object (self, servant)
 	DEFINE_EXCEPTION(ev);
 	oid = PortableServer_POA_activate_object (self, servant, &ev);
 	CHECK_EXCEPTION(ev);
+        porbit_servant_ref (servant);
 	RETVAL = porbit_objectid_to_sv (oid);
 	CORBA_free (oid);
     }
@@ -825,6 +826,7 @@ activate_object_with_id (self, perl_id, servant)
 	PortableServer_POA_activate_object_with_id (self, servant, oid, &ev);
 	CORBA_free (oid);
 	CHECK_EXCEPTION(ev);
+        porbit_servant_ref (servant);
     }
 
 void
@@ -834,8 +836,16 @@ deactivate_object (self, perl_id)
     CODE:
     {
 	PortableServer_ObjectId *oid = porbit_sv_to_objectid (perl_id);
+	PortableServer_Servant servant;
 	DEFINE_EXCEPTION(ev);
-	PortableServer_POA_deactivate_object (self, oid, &ev);
+
+	servant = PortableServer_POA_id_to_servant (self, oid, &ev);
+        if (ev._major == CORBA_NO_EXCEPTION)
+	    PortableServer_POA_deactivate_object (self, oid, &ev);
+
+        if (ev._major == CORBA_NO_EXCEPTION)
+            porbit_servant_unref (servant);
+
 	CORBA_free (oid);
 	CHECK_EXCEPTION(ev);
     }

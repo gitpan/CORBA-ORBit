@@ -776,6 +776,8 @@ do_operation(IDL_tree tree)
 	exc_desc->name = NULL;
 	exc_desc->defined_in = NULL;
 	exc_desc->version = NULL;
+
+	raises_expr = IDL_LIST (raises_expr).next;
     }
 
     /* We don't need the following */
@@ -1014,7 +1016,7 @@ porbit_parse_idl_file (const char *file)
   IDL_ns ns;
   int ret;
 
-  ret = IDL_parse_filename (file, NULL, NULL, &tree, &ns,
+  ret = IDL_parse_filename (file, "-D__ORBIT_IDL__ ", NULL, &tree, &ns,
 			    IDLF_TYPECODES, IDL_WARNING1);
 
   if (ret == IDL_ERROR) {

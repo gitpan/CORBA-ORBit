@@ -2,7 +2,6 @@
 
 use CORBA::ORBit idl => [ qw(Account.idl) ];
 
-my %counters = ();
 my @servers;
 
 my $poa;
@@ -14,10 +13,7 @@ sub new {
     my $class = shift;
 
     my $count = 0;
-    my $self = bless \$count, $class;
-    $counters{$self} = $self;
-
-    $self;
+    return bless \$count, $class;
 }
 
 sub next {
@@ -28,7 +24,6 @@ sub next {
 sub destroy {
     my $self = shift;
     $poa->deactivate_object ($poa->servant_to_id ($self));
-    delete $counters{$self};
 }
 
 package MyCounter;
@@ -114,11 +109,14 @@ sub withdraw {
 }
 
 sub balance {
-    $_[0]->{current_balance}
+    $_[0]->{current_balance};
 };
 
 sub counter {
-    $poa->create_reference("IDL:Account/AcctCounter:1.0");
+    $servant = new MyCounter;
+    my $id = $poa->activate_object ($servant);
+    return $poa->id_to_reference ($id);
+#    $poa->create_reference("IDL:Account/AcctCounter:1.0");
 }
 
 sub add {
