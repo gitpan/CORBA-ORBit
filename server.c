@@ -118,11 +118,11 @@ porbit_get_repoid (SV *perlobj)
     XPUSHs(perlobj);
     PUTBACK;
     
-    count = perl_call_method("_porbit_repoid", G_SCALAR);
+    count = perl_call_method("_repoid", G_SCALAR);
     SPAGAIN;
     
     if (count != 1)			/* sanity check */
-	croak("object->_porbit_repoid didn't return 1 argument");
+	croak("object->_repoid didn't return 1 argument");
     
     result = g_strdup (POPp);
     
@@ -307,26 +307,25 @@ porbit_call_method (PORBitServant *servant, const char *name, int return_items)
 	}
     }
 
-    /* Even when we specify G_VOID we may still get a response if the user
-       didn't return with 'return;'! */
-    if (!return_items) {
+    if (return_count != return_items) {
+	if (return_items && (PL_dowarn & G_WARN_ON))
+	    warn("Implementation '%s::%s' returned %d items and should return %d items",
+		servant_classname (servant), name, return_count, return_items);
 	
-	if (return_count) {
-	    while (return_count--)
+	if (return_count > return_items) {
+	    while (return_count > return_items) {
 		(void)POPs;
+		return_count--;
+	    }
+	    PUTBACK;
+	} else {
+	    EXTEND(SP, return_items - return_count);
+	    while (return_count < return_items) {
+		(void)PUSHs(&PL_sv_undef);
+		return_count++;
+	    }
 	    PUTBACK;
 	}
-	
-    } else if (return_count != return_items) {
-	warn("Implementation '%s::%s' should return %d items",
-	    servant_classname (servant), name, return_items);
-	
-	while (return_count--)
-	    (void)POPs;
-	PUTBACK;
-
-	return porbit_system_except("IDL:omg.org/CORBA/MARSHAL:1.0", 
-				    0, CORBA_COMPLETED_YES);
     }
 
     return NULL;
@@ -691,7 +690,7 @@ porbit_servant_create (SV *perlobj, CORBA_Environment *ev)
 	info->class_info.relay_call = (ORBit_impl_finder)porbit_get_skel;
 	info->class_info.class_name = info->desc->id;
 	info->class_info.init_local_objref = NULL;
-	
+
 	info->class_id = ORBit_register_class(&info->class_info);
     }
     

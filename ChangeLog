@@ -1,3 +1,44 @@
+Sun Jul  7 08:25:55 EDT 2002  Huw Rogers  <balkanaan@users.sourceforge.net>
+
+	* upped version to 0.4.6 (prepare for 0.4.6 release)
+
+	* fixed potential buffer under-run in demarshal.c
+
+	* fixed demarshalling of fixed types
+
+	* removed excess whitespace from interfaces.c
+
+	* put back the interface definition for _is_a() that is called from
+	  remote clients, but prevented the remote version from being defined
+	  in the local perl package as a perl method (the locally called
+	  version is in ORBit.xs)
+
+	* renamed _porbit_repoid() to _repoid()
+
+	* fixed marshalling of sequences (perl arrays) with undefined
+	  initial elements
+
+	* fixed marshalling of arrays with undefined elements
+
+	* fixed marshalling of unions with undefined discriminators
+	  (use union default) and/or undefined values
+
+	* enabled server implementations to return fewer return values than
+	  defined by IDL, marshalling undef for the missing values
+
+	* fixed idl_path in example server
+
+	* added omg.org prefix to typecode names
+
+Tue Jun  4 15:29:24 BST 2002 Alex Hornby  <alex@hornby.org.uk>
+
+	* start a test suite.
+	
+Thu May 30 08:37:36 BST 2002 Alex Hornby  <alex@hornby.org.uk>
+
+	* add TypeCode example to mapping.pod and refer to it in Any
+	section
+
 Sat May 25 21:35:28 JST 2002  Huw Rogers  <balkanaan@users.sourceforge.net>
 
 	* up version to 0.4.5 (prepare for 0.4.5 release)

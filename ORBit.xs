@@ -352,14 +352,6 @@ _get_interface (self)
     OUTPUT:
     RETVAL
 
-char *
-_repoid (self)
-    CORBA::Object self;
-    CODE:
-    RETVAL = self->object_id;
-    OUTPUT:
-    RETVAL
-
 void
 _narrow (self, repo_id)
     CORBA::Object self;
@@ -996,7 +988,23 @@ new (pkg, id)
         croak ("Cannot find typecode for '%s'", id);
     OUTPUT:
     RETVAL
-    
+
+char *
+id (self)
+    CORBA::TypeCode self
+    CODE:
+    RETVAL = (char *)self->repo_id;
+    OUTPUT:
+    RETVAL
+
+char *
+name (self)
+    CORBA::TypeCode self
+    CODE:
+    RETVAL = (char *)self->name;
+    OUTPUT:
+    RETVAL
+
 MODULE = CORBA::ORBit           PACKAGE = CORBA::ORBit
 
 char *

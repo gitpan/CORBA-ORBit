@@ -2,9 +2,7 @@ CORBA::ORBit 0.4.5
 ==================
 
 CORBA::ORBit is a Perl binding for ORBit. It is based
-on code from my earlier module CORBA::MICO, which
-was a binding for MICO.
-
+on code from CORBA::MICO, which was a binding for MICO.
 
 Status
 ======
@@ -29,7 +27,7 @@ Installation
 ============
 
 To compile and run this package, you'll need to have 
-ORBit, version 0.5.0 or better installed. (CORBA::ORBit triggers
+ORBit, version 0.5.13 or better installed. (CORBA::ORBit triggers
 bug in the support for typecodes in earlier versions
 of orbit.) Information about ORBit is available from:
 
@@ -129,12 +127,6 @@ or converted to a variety of formats, for example:
   pod2html ORBit/mapping.pod > ORBit/mapping.html
 
 They will also be installed as manual pages.
-
-The HTML form can also be found at:  
-
- http://people.redhat.com/otaylor/corba/mapping.html
-
-
 
 License
 =======

@@ -205,6 +205,7 @@ put_sequence (GIOPSendBuffer *buf, CORBA_TypeCode tc, SV *sv)
     dTHR;
     
     CORBA_unsigned_long len, i;
+    SV **value;
 
     if (sv == &PL_sv_undef) {
 	if (PL_dowarn & G_WARN_ON)
@@ -240,9 +241,12 @@ put_sequence (GIOPSendBuffer *buf, CORBA_TypeCode tc, SV *sv)
 	
     } else {
 	AV *av = (AV *)SvRV(sv);
-	for (i = 0; i < len; i++)
-	    if (!porbit_put_sv (buf, tc->subtypes[0], *av_fetch(av, i, 0))) 
+	for (i = 0; i < len; i++) {
+	    value = av_fetch(av, i, 0);
+	    if (!porbit_put_sv (buf, tc->subtypes[0],
+		    value ? *value : &PL_sv_undef))
 		return CORBA_FALSE;
+	}
     }
 
     return CORBA_TRUE;
@@ -253,6 +257,7 @@ put_array (GIOPSendBuffer *buf, CORBA_TypeCode tc, SV *sv)
 {
     AV *av;
     CORBA_unsigned_long i;
+    SV **value;
 
     if (!SvROK(sv) || (SvTYPE(SvRV(sv)) != SVt_PVAV)) {
 	warn("Array argument must be array reference");
@@ -266,9 +271,12 @@ put_array (GIOPSendBuffer *buf, CORBA_TypeCode tc, SV *sv)
 	return CORBA_FALSE;
     }
 	
-    for (i = 0; i < tc->length; i++)
-	if (!porbit_put_sv (buf, tc->subtypes[0], *av_fetch(av, i, 0))) 
+    for (i = 0; i < tc->length; i++) {
+	value = av_fetch(av, i, 0);
+	if (!porbit_put_sv (buf, tc->subtypes[0],
+		value ? *value : &PL_sv_undef))
 	    return CORBA_FALSE;
+    }
 
     return CORBA_TRUE;
 }
@@ -432,19 +440,31 @@ static CORBA_boolean
 put_union (GIOPSendBuffer *buf, CORBA_TypeCode tc, SV *sv)
 {
     SV **discriminator;
-    SV **valp;
+    SV **value;
     AV *av;
     CORBA_long arm;
     
+    if (sv == &PL_sv_undef) {
+	if (PL_dowarn & G_WARN_ON)
+	    warn ("Uninitialized union");
+	if (!porbit_put_sv (buf, tc->discriminator, &PL_sv_undef))
+	    return CORBA_FALSE;
+	arm = porbit_union_find_arm (tc, &PL_sv_undef);
+	if (arm < 0) {
+	    warn("union discriminator branch does not match any arm, and no default arm");
+	    return CORBA_FALSE;
+	}
+	return porbit_put_sv (buf, tc->subtypes[arm], &PL_sv_undef);
+    }
+
     if (!SvROK(sv) || 
-	(SvTYPE(SvRV(sv)) != SVt_PVAV) ||
-	(av_len((AV *)SvRV(sv)) != 1)) {
-	warn("union must be array reference of length 2");
+	(SvTYPE(SvRV(sv)) != SVt_PVAV)) {
+	warn("Union must be array reference");
 	return CORBA_FALSE;
     }
 
     av = (AV *)SvRV(sv);
-    discriminator = av_fetch(av, 0, 0); 
+    discriminator = av_fetch(av, 0, 0);
 
     if (!discriminator && (PL_dowarn & G_WARN_ON))
 	warn ("Uninitialized union discriminator");
@@ -460,14 +480,17 @@ put_union (GIOPSendBuffer *buf, CORBA_TypeCode tc, SV *sv)
 	return CORBA_FALSE;
     }
 
-    return porbit_put_sv (buf, tc->subtypes[arm], *av_fetch(av, 1, 0));
+    value = av_fetch(av, 1, 0);
+
+    return porbit_put_sv (buf, tc->subtypes[arm],
+	value ? *value : &PL_sv_undef);
 }
 
 static CORBA_boolean
 put_any (GIOPSendBuffer *buf, CORBA_TypeCode tc, SV *sv)
 {
     AV *av;
-    SV *tc_sv;
+    SV **tc_sv;
     CORBA_TypeCode output_tc;
     
     if (sv == &PL_sv_undef) {
@@ -486,14 +509,14 @@ put_any (GIOPSendBuffer *buf, CORBA_TypeCode tc, SV *sv)
     }
 
     av = (AV *)SvRV(sv);
-    tc_sv = *av_fetch(av, 0, 0); 
+    tc_sv = av_fetch(av, 0, 0); 
 
-    if (!sv_isa(tc_sv, "CORBA::TypeCode")) {
+    if (!tc_sv || !sv_isa(*tc_sv, "CORBA::TypeCode")) {
 	warn ("First member of any isn't a CORBA::TypeCode");
 	return CORBA_FALSE;
     }
 
-    output_tc = (CORBA_TypeCode)SvIV(SvRV(tc_sv));
+    output_tc = (CORBA_TypeCode)SvIV(SvRV(*tc_sv));
     ORBit_encode_CORBA_TypeCode (output_tc, buf);
     
     return porbit_put_sv (buf, output_tc, *av_fetch (av, 1, 0));

@@ -2,7 +2,7 @@
 
 Mapping - CORBA mapping for Perl
 
-[ Draft 1, 7 October 1999 ]
+[ 29 May 2002 ]
 
 =head1 DESCRIPTION
 
@@ -123,12 +123,37 @@ sequences map to array references.
 Arrays map to Perl array references. Multiple dimensional
 arrays map to nested Perl array references.
 
+=item TypeCodes
+
+A typecode maps to a Perl object of type CORBA::TypeCode. The
+constructor takes one argument, the type of the typecode as a CORBA
+interface repository id.
+
+  e.g. A type code representing a struct "Bar" by someone working for
+       foo.com
+
+  my $tc = CORBA::TypeCode->new("IDL:foo.com/Bar:1.0");
+
+You may also access the id and name members:
+
+  my $id = $tc->id();
+  my $name = $tc->name();
+
 =item Anys
 
 An any maps to a Perl object of type CORBA::Any. The constructor
 takes two arguments, the type (of type CORBA::TypeCode) and
 the value. The type and value are accessed via the type() and
 value() member functions.
+
+  e.g. To create an any containing a "Bar" structure.
+
+  my $bar = { "data1" => 1 };	
+  my $a  = CORBA::Any->new($tc, $bar);	
+
+  Note that $tc is constructed above in the TypeCode example. 
+  $bar is the perl representation of a CORBA structure with one
+  integer member called "data1".
 
 =item Unions
 

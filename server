@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 
-use CORBA::ORBit idl_path => $IDL_PATH, idl => [ qw(Account.idl) ];
+use CORBA::ORBit idl_path => $ENV{'IDL_PATH'}, idl => [ qw(Account.idl) ];
 
 my @servers;
 
@@ -86,7 +86,7 @@ sub get_pref_any {
 	return new CORBA::Any (CORBA::TypeCode->new('IDL:Account/Account/numbers:1.0'),
 			       $self->{prefs}->{lottery_numbers});
     } elsif ($d eq "pt_nickname") {
-	return new CORBA::Any (CORBA::TypeCode->new('IDL:CORBA/String:1.0'),
+	return new CORBA::Any (CORBA::TypeCode->new('IDL:omg.org/CORBA/String:1.0'),
 			       $self->{prefs}->{nickname});
     }
 }

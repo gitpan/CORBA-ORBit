@@ -37,6 +37,10 @@ self.xpm
 server
 server.c
 server.h
+t/01orbinit.t
+t/02typecodesys.t
+t/03typecodeuser.t
+t/04any.t
 tictactoe
 typemap
 types.c

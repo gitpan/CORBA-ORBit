@@ -11,11 +11,11 @@ XS(_porbit_callStub);
 static CORBA_Repository iface_repository = NULL;
 
 PORBitIfaceInfo *
-porbit_find_interface_description (const char *repoid) 
+porbit_find_interface_description (const char *repoid)
 {
     HV *hv = perl_get_hv("CORBA::ORBit::_interfaces", TRUE);
     SV **result = hv_fetch (hv, (char *)repoid, strlen(repoid), 0);
-    
+
     if (!result)
 	return NULL;
     else
@@ -44,15 +44,15 @@ store_interface_description (CORBA_InterfaceDef_FullInterfaceDescription *desc,
 
     info->desc = desc;
     info->class_id = 0;
-    
+
     hv_store (hv, (char *)desc->id, strlen (desc->id), newSViv((IV)info), 0);
 
     varname = g_strconcat (info->pkg, "::", PORBIT_REPOID_KEY, NULL);
     pkg_sv = perl_get_sv (varname, TRUE );
     g_free (varname);
-    
+
     sv_setpv (pkg_sv, desc->id);
-    
+
     return info;
 }
 
@@ -61,9 +61,9 @@ ensure_iface_repository (CORBA_Environment *ev)
 {
     if (iface_repository == NULL)
 	iface_repository = CORBA_ORB_resolve_initial_references(porbit_orb, "InterfaceRepository", ev);
-    
+
     if (ev->_major != CORBA_NO_EXCEPTION || iface_repository == NULL) {
-	
+
 	CORBA_exception_set_system (ev, ex_CORBA_INTF_REPOS, CORBA_COMPLETED_NO);
 	warn("Cannot locate interface repository");
 	return FALSE;
@@ -78,13 +78,13 @@ define_exception (const char *repoid, CORBA_Environment *ev)
     CORBA_char *pack = NULL;
     char *pkg;
     CORBA_Contained contained = NULL;
-    
+
     if (porbit_find_exception(repoid))
 	return;
 
     if (!ensure_iface_repository (ev))
 	goto error;
-    
+
     contained = CORBA_Repository_lookup_id (iface_repository, ((char *)repoid), ev);
     if (ev->_major != CORBA_NO_EXCEPTION)
 	goto error;
@@ -111,14 +111,14 @@ define_method (const char *pkg, const char *prefix, const char *name, I32 index)
 {
     gchar *fullname = g_strconcat (pkg, prefix, name, NULL);
 
-    CV *method_cv = newXS ((char *)fullname, _porbit_callStub, __FILE__); 
+    CV *method_cv = newXS ((char *)fullname, _porbit_callStub, __FILE__);
     CvXSUBANY(method_cv).any_i32 = index;
     CvSTASH (method_cv) = gv_stashpv ((char *)pkg, 0);
-      
+
     g_free (fullname);
 }
 
-XS(_porbit_repoid) {
+XS(_repoid) {
     dXSARGS;
     if (items != 1) croak("Usage: _repoid(self)");
 
@@ -133,14 +133,14 @@ load_ancestor (const char *id, CORBA_Environment *ev)
     PORBitIfaceInfo *info;
     CORBA_Contained base;
     CORBA_DefinitionKind defkind;
-    
+
     info = porbit_find_interface_description (id);
     if (info)
 	return info;
 
     if (!ensure_iface_repository (ev))
 	return NULL;
-    
+
     base = CORBA_Repository_lookup_id (iface_repository, (char *)id, ev);
     if (ev->_major != CORBA_NO_EXCEPTION || !base)
 	return NULL;
@@ -151,12 +151,12 @@ load_ancestor (const char *id, CORBA_Environment *ev)
 	CORBA_Object_release (base, ev);
 	return NULL;
     }
-    
+
     info = porbit_load_contained (base, NULL, ev);
     CORBA_Object_release (base, ev);
 
     return info;
-}	
+}
 
 PORBitIfaceInfo *
 porbit_init_interface (CORBA_InterfaceDef_FullInterfaceDescription *desc,
@@ -174,14 +174,15 @@ porbit_init_interface (CORBA_InterfaceDef_FullInterfaceDescription *desc,
 	CORBA_free (desc);
 	return info;
     }
-    
+
     info = store_interface_description (desc, package_name);
 
     /* Set up the interface's operations and attributes
      */
     for (i = 0 ; i < desc->operations._length ; i++) {
         CORBA_OperationDescription *opr = &desc->operations._buffer[i];
-	
+
+	if (!strcmp(opr->name, "_is_a")) continue;
 	define_method (info->pkg, "::", opr->name, PORBIT_OPERATION_BASE + i);
 	for (j = 0 ; j < opr->exceptions._length ; j++) {
 	    define_exception (opr->exceptions._buffer[j].id, ev);
@@ -192,10 +193,10 @@ porbit_init_interface (CORBA_InterfaceDef_FullInterfaceDescription *desc,
 
     for (i = 0; i < desc->attributes._length; i++) {
 	if (desc->attributes._buffer[i].mode == CORBA_ATTR_NORMAL) {
-	    define_method (info->pkg, "::_set_", desc->attributes._buffer[i].name, 
+	    define_method (info->pkg, "::_set_", desc->attributes._buffer[i].name,
 			   PORBIT_SETTER_BASE + i);
 	}
-	define_method (info->pkg, "::_get_", desc->attributes._buffer[i].name, 
+	define_method (info->pkg, "::_get_", desc->attributes._buffer[i].name,
 		       PORBIT_GETTER_BASE + i);
     }
 
@@ -212,7 +213,7 @@ porbit_init_interface (CORBA_InterfaceDef_FullInterfaceDescription *desc,
 		  desc->base_interfaces._buffer[i]);
 	    return NULL;
 	}
-	
+
 	if (info)
 	    av_push (isa_av, newSVpv(info->pkg, 0));
     }
@@ -222,16 +223,16 @@ porbit_init_interface (CORBA_InterfaceDef_FullInterfaceDescription *desc,
     tmp_str = g_strconcat ("POA_", info->pkg, "::ISA", NULL);
     isa_av = perl_get_av (tmp_str, TRUE);
     g_free (tmp_str);
-    
+
     av_push (isa_av, newSVpv("PortableServer::ServantBase", 0));
 
     /* Create a package method that will allow us to determine the
-     * repository id before we have the ORBit object set up
+     * repository id even before we have the ORBit object set up
      */
-    tmp_str = g_strconcat ("POA_", info->pkg, "::_porbit_repoid", NULL);
-    method_cv = newXS (tmp_str, _porbit_repoid, __FILE__);
+    tmp_str = g_strconcat ("POA_", info->pkg, "::_repoid", NULL);
+    method_cv = newXS (tmp_str, _repoid, __FILE__);
     g_free (tmp_str);
-    
+
     CvXSUBANY(method_cv).any_ptr = (void *)newSVpv((char *)desc->id, 0);
 
     return info;
@@ -251,14 +252,14 @@ load_container (CORBA_Container container, PORBitIfaceInfo *info, CORBA_Environm
     CORBA_unsigned_long i;
     CORBA_ContainedSeq *contents = NULL;
     CORBA_char *pkg = NULL;
-	      
+
     contents = CORBA_Container_contents (container, CORBA_dk_Constant, CORBA_TRUE, ev);
     if (ev->_major != CORBA_NO_EXCEPTION)
 	return;
-    
+
     if (contents->_length > 0) {
 	char *pkgname;
-	
+
 	if (info)
 	    pkgname = g_strdup (info->pkg);
 	else {
@@ -268,19 +269,19 @@ load_container (CORBA_Container container, PORBitIfaceInfo *info, CORBA_Environm
 	    else
 		pkgname = pkg;
 	}
-	
+
 	for (i = 0; i<contents->_length; i++)
 	    ;
   	    /* porbit_init_constant (pkgname, contents->_buffer[i]); */
     }
     CORBA_free (contents);
-    
+
     contents = CORBA_Container_contents (container, CORBA_dk_Interface, CORBA_TRUE, ev);
     if (ev->_major != CORBA_NO_EXCEPTION) {
 	contents = NULL;
 	goto error;
     }
-    
+
     for (i = 0; i<contents->_length; i++) {
 	CORBA_char *id;
 
@@ -312,7 +313,7 @@ load_interface (CORBA_InterfaceDef iface, CORBA_Environment *ev)
     CORBA_char *absolute_name;
     const char *package_name;
     PORBitIfaceInfo *retval;
-    
+
     desc = CORBA_InterfaceDef_describe_interface (iface, ev);
     if (ev->_major != CORBA_NO_EXCEPTION)
 	return NULL;
@@ -322,11 +323,11 @@ load_interface (CORBA_InterfaceDef iface, CORBA_Environment *ev)
 	CORBA_free (desc);
 	return NULL;
     }
-    
+
     package_name = absolute_name;
     if (!strncmp(package_name, "::", 2))
 	package_name += 2;
-    
+
     retval = porbit_init_interface (desc, package_name, ev);
 
     CORBA_free (absolute_name);
@@ -341,18 +342,18 @@ porbit_load_contained (CORBA_Contained _contained, const char *_id, CORBA_Enviro
     PORBitIfaceInfo *retval = NULL;
     CORBA_DefinitionKind defkind;
     CORBA_char *id;
-    
+
     CORBA_Contained contained;
 
     assert (_contained != NULL || _id != NULL);
 
     id = (CORBA_char *)_id;
-    
+
     if (_contained) {
 	contained = CORBA_Object_duplicate (_contained, ev);
 	if (ev->_major != CORBA_NO_EXCEPTION)
 	    return NULL;
-	
+
 	if (!id) {
 	    id = CORBA_Contained__get_id (contained, ev);
 	    if (ev->_major != CORBA_NO_EXCEPTION) {
@@ -364,11 +365,11 @@ porbit_load_contained (CORBA_Contained _contained, const char *_id, CORBA_Enviro
     } else {
 	if (!ensure_iface_repository (ev))
 	    return NULL;
-	
+
 	contained = CORBA_Repository_lookup_id (iface_repository, id, ev);
 	if (ev->_major != CORBA_NO_EXCEPTION)
 	    return NULL;
-	
+
 	if (!contained) {
 	    warn ("Cannot find '%s' in interface repository", id);
 	    CORBA_exception_set_system (ev, ex_CORBA_BAD_PARAM, CORBA_COMPLETED_NO);
@@ -379,7 +380,7 @@ porbit_load_contained (CORBA_Contained _contained, const char *_id, CORBA_Enviro
     defkind = CORBA_IRObject__get_def_kind (contained, ev);
     if (ev->_major != CORBA_NO_EXCEPTION)
 	goto error;
-    
+
     /* If the container is an interface, suck all the information
      * out of it for later use.
      */
@@ -419,7 +420,7 @@ porbit_load_contained (CORBA_Contained _contained, const char *_id, CORBA_Enviro
 
 /* TypeCode lookup */
 
-static GHashTable *typecode_hash = NULL; 
+static GHashTable *typecode_hash = NULL;
 
 #define duplicate_typecode(a) (CORBA_TypeCode)CORBA_Object_duplicate ((CORBA_Object)a, NULL)
 
@@ -450,36 +451,71 @@ porbit_remove_typecode (const char *repoid)
 	g_hash_table_remove (typecode_hash, repoid);
 }
 
+static CORBA_ParameterDescription is_a_parameter = {
+    "logical_type_id",		/* name */
+    TC_CORBA_string,		/* type */
+    CORBA_OBJECT_NIL,		/* type_def */
+    CORBA_PARAM_IN		/* mode */
+
+};
+
+static CORBA_OperationDescription is_a_desc = {
+    "_is_a",			/* name */
+    NULL, 			/* id */
+    NULL,			/* defined_in */
+    NULL,			/* version */
+    TC_CORBA_boolean,		/* result */
+    CORBA_OP_NORMAL,		/* mode */
+    {				/* contexts */
+	0,			/*    _maximum */
+	0,			/*    _length */
+	NULL,			/*    _buffer */
+	FALSE			/*    _release */
+    },
+    {				/* parameters */
+	1,			/*    _maximum */
+	1,			/*    _length */
+	&is_a_parameter,	/*    _buffer */
+	FALSE			/*    _release */
+    },
+    {				/* exceptions */
+	0,			/*    _maximum */
+	0,			/*    _length */
+	NULL,			/*    _buffer */
+	FALSE			/*    _release */
+    }
+};
+
 void
 porbit_init_interfaces (void)
 {
     CORBA_Environment ev;
-    
+
     CORBA_InterfaceDef_FullInterfaceDescription *desc;
-    
+
     desc = g_new (CORBA_InterfaceDef_FullInterfaceDescription, 1);
     desc->name = "Object";
     desc->id = "IDL:CORBA/Object:1.0";
-    
-    desc->operations._maximum = 0;
-    desc->operations._length = 0;
-    desc->operations._buffer = NULL;
+
+    desc->operations._maximum = 1;
+    desc->operations._length = 1;
+    desc->operations._buffer = &is_a_desc;
     desc->operations._release = FALSE;
 
     desc->attributes._maximum = 0;
     desc->attributes._length = 0;
     desc->attributes._buffer = NULL;
     desc->attributes._release = FALSE;
-    
+
     desc->base_interfaces._maximum = 0;
     desc->base_interfaces._length = 0;
     desc->base_interfaces._buffer = NULL;
     desc->base_interfaces._release = FALSE;
-    
+
     desc->version = NULL;
     desc->defined_in = NULL;
     desc->type = NULL;
-    
+
     CORBA_exception_init (&ev);
     porbit_init_interface (desc, "CORBA::Object", &ev);
     if (ev._major != CORBA_NO_EXCEPTION) {
@@ -495,43 +531,42 @@ porbit_init_typecodes  (void)
 			   duplicate_typecode(TC_null));
     porbit_store_typecode ("IDL:omg.org/CORBA/Void:1.0",
 			   duplicate_typecode(TC_void));
-    porbit_store_typecode ("IDL:omg.org/CORBA/Short:1.0", 
+    porbit_store_typecode ("IDL:omg.org/CORBA/Short:1.0",
 			   duplicate_typecode(TC_CORBA_short));
-    porbit_store_typecode ("IDL:omg.org/CORBA/Long:1.0", 
+    porbit_store_typecode ("IDL:omg.org/CORBA/Long:1.0",
 			   duplicate_typecode(TC_CORBA_long));
-    porbit_store_typecode ("IDL:omg.org/CORBA/LongLong:1.0", 
+    porbit_store_typecode ("IDL:omg.org/CORBA/LongLong:1.0",
 			   duplicate_typecode(TC_CORBA_longlong));
-    porbit_store_typecode ("IDL:omg.org/CORBA/UShort:1.0", 
+    porbit_store_typecode ("IDL:omg.org/CORBA/UShort:1.0",
 			   duplicate_typecode(TC_CORBA_ushort));
-    porbit_store_typecode ("IDL:omg.org/CORBA/ULong:1.0", 
+    porbit_store_typecode ("IDL:omg.org/CORBA/ULong:1.0",
 			   duplicate_typecode(TC_CORBA_ulong));
-    porbit_store_typecode ("IDL:omg.org/CORBA/ULongLong:1.0", 
+    porbit_store_typecode ("IDL:omg.org/CORBA/ULongLong:1.0",
 			   duplicate_typecode(TC_CORBA_ulonglong));
-    porbit_store_typecode ("IDL:omg.org/CORBA/Float:1.0", 
+    porbit_store_typecode ("IDL:omg.org/CORBA/Float:1.0",
 			   duplicate_typecode(TC_CORBA_float));
-    porbit_store_typecode ("IDL:omg.org/CORBA/Double:1.0", 
+    porbit_store_typecode ("IDL:omg.org/CORBA/Double:1.0",
 			   duplicate_typecode(TC_CORBA_double));
-    porbit_store_typecode ("IDL:omg.org/CORBA/LongDouble:1.0", 
+    porbit_store_typecode ("IDL:omg.org/CORBA/LongDouble:1.0",
 			   duplicate_typecode(TC_CORBA_longdouble));
-    porbit_store_typecode ("IDL:omg.org/CORBA/Boolean:1.0", 
+    porbit_store_typecode ("IDL:omg.org/CORBA/Boolean:1.0",
 			   duplicate_typecode(TC_CORBA_boolean));
-    porbit_store_typecode ("IDL:omg.org/CORBA/Char:1.0", 
+    porbit_store_typecode ("IDL:omg.org/CORBA/Char:1.0",
 			   duplicate_typecode(TC_CORBA_char));
-    porbit_store_typecode ("IDL:omg.org/CORBA/WChar:1.0", 
+    porbit_store_typecode ("IDL:omg.org/CORBA/WChar:1.0",
 			   duplicate_typecode(TC_CORBA_wchar));
-    porbit_store_typecode ("IDL:omg.org/CORBA/Octet:1.0", 
+    porbit_store_typecode ("IDL:omg.org/CORBA/Octet:1.0",
 			   duplicate_typecode(TC_CORBA_octet));
-    porbit_store_typecode ("IDL:omg.org/CORBA/Any:1.0", 
+    porbit_store_typecode ("IDL:omg.org/CORBA/Any:1.0",
 			   duplicate_typecode(TC_CORBA_any));
-    porbit_store_typecode ("IDL:omg.org/CORBA/TypeCode:1.0", 
+    porbit_store_typecode ("IDL:omg.org/CORBA/TypeCode:1.0",
 			   duplicate_typecode(TC_CORBA_TypeCode));
-    porbit_store_typecode ("IDL:omg.org/CORBA/Principal:1.0", 
+    porbit_store_typecode ("IDL:omg.org/CORBA/Principal:1.0",
 			   duplicate_typecode(TC_CORBA_Principal));
-    porbit_store_typecode ("IDL:omg.org/CORBA/Object:1.0", 
+    porbit_store_typecode ("IDL:omg.org/CORBA/Object:1.0",
 			   duplicate_typecode(TC_CORBA_Object));
-    porbit_store_typecode ("IDL:omg.org/CORBA/String:1.0", 
+    porbit_store_typecode ("IDL:omg.org/CORBA/String:1.0",
 			   duplicate_typecode(TC_CORBA_string));
-    porbit_store_typecode ("IDL:omg.org/CORBA/WString:1.0", 
+    porbit_store_typecode ("IDL:omg.org/CORBA/WString:1.0",
 			   duplicate_typecode(TC_CORBA_wstring));
 }
-

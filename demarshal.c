@@ -217,8 +217,9 @@ get_sequence (GIOPRecvBuffer *buf, CORBA_TypeCode tc)
 
     if (tc->subtypes[0]->kind == CORBA_tk_octet ||
 	tc->subtypes[0]->kind == CORBA_tk_char) {
+	CORBA_long left = RECV_BUFFER_LEFT (buf);
 
-        if (RECV_BUFFER_LEFT (buf) < len) {
+	if (left < 0 || (CORBA_unsigned_long)left < len) {
 	    warn ("incomplete message received");
 	    return NULL;
 	}
@@ -506,7 +507,9 @@ get_fixed (GIOPRecvBuffer *buf, CORBA_TypeCode tc)
 
     index = 1;
     for (i = 0; i < wire_length; i++) {
-        CORBA_octet c = *(char *)(buf->cur = (guchar *)buf->cur + 1);
+        CORBA_octet c = *(CORBA_octet *)buf->cur;
+
+	buf->cur = (guchar *)buf->cur + 1;
 
 	if (!(i == 0 && offset))
 	    SvPVX(digits_sv)[index++] = '0' + ((c & 0xf0) >> 4);
