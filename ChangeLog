@@ -1,3 +1,17 @@
+Tue Jul 23 21:13:35 EDT 2002  Huw Rogers  <balkanaan@users.sourceforge.net>
+
+	* added _repoid back - needed for remote object references
+
+	* upped version to 0.4.7 (prepare for 0.4.7 release)
+
+Mon Jul 22 12:30:36 BST 2002 Alex Hornby  <alex@hornby.org.uk>
+
+	* add client/server test
+
+Fri Jul 19 15:53:36 BST 2002 Alex Hornby  <alex@hornby.org.uk>
+
+	* fix build on 5.00503 for redhat 6.2 system perl
+	.
 Sun Jul  7 08:25:55 EDT 2002  Huw Rogers  <balkanaan@users.sourceforge.net>
 
 	* upped version to 0.4.6 (prepare for 0.4.6 release)

@@ -352,6 +352,14 @@ _get_interface (self)
     OUTPUT:
     RETVAL
 
+char *
+_repoid (self)
+    CORBA::Object self;
+    CODE:
+    RETVAL = self->object_id;
+    OUTPUT:
+    RETVAL
+
 void
 _narrow (self, repo_id)
     CORBA::Object self;

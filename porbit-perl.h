@@ -22,4 +22,9 @@
 void newCONSTSUB(HV *stash, char *name, SV *sv);
 #endif /* PERL5004_COMPAT */
 
+/* keep compat with 5.005 */
+#ifndef G_WARN_ON
+# define G_WARN_ON 1
+#endif
+
 #endif /* __PORBIT_PERL_H__ */

@@ -311,8 +311,13 @@ XS(_porbit_callStub)
     repoidp = hv_fetch(CvSTASH(cv), PORBIT_REPOID_KEY, strlen(PORBIT_REPOID_KEY), 0);
     if (!repoidp)
 	croak("_porbit_callStub called with bad package (no %s)",PORBIT_REPOID_KEY);
-    
+
+#if (PATCHLEVEL < 6)
+    repoid = SvPV(GvSV(*repoidp), PL_na);
+#else
     repoid = SvPV_nolen(GvSV(*repoidp));
+#endif /* PATCHLEVEL */
+
     
     info = porbit_find_interface_description (repoid);
     if (!info)
