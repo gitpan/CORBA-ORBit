@@ -15,7 +15,7 @@ require Carp;
 
 @ISA = qw(DynaLoader);
 
-$VERSION = '0.4.0';
+$VERSION = '0.4.1';
 
 bootstrap CORBA::ORBit $VERSION;
 

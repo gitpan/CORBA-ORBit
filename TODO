@@ -29,10 +29,15 @@ General Tasks
 - Figure out how to get Perl to talk to C in the same process
   (almost certainly requires some ORBit changes)
 
+Test Suite
+==========
 
-
-
-
+- Write a test suite; this should be a lot easier now with
+  the ability to read from .idl files than it was for 
+  the MICO module, where we had to fire up a interface repository
+  and feed it. All you need to do is make your testing
+  client program start the server program, which can write
+  the IOR to standard out.
 
 BUGS
 ====

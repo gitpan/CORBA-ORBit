@@ -1,4 +1,4 @@
-CORBA::ORBit 0.4.0
+CORBA::ORBit 0.4.1
 ==================
 
 CORBA::ORBit is a Perl binding for ORBit. It is based
@@ -79,11 +79,13 @@ And then run the client program:
 You should see output that looks something like:
 
 ----------
-Using /home/otaylor/prog/CORBA-ORBit-0.1.0/blib
-Balance is +183.33
-Favorite color is burgundy
+Using /home/otaylor/work/orbit-perl/blib
+Oops. I don't have that much money
+    (I need +99083.35 more)
+Balance is +916.65
+Favorite color is chartreuse
 Lottery numbers are 1 2 3 4
-Nickname is Sneezy
+Nickname is Grumpy
   /****\  
  ;     	; 
  [ O  O ] 
@@ -95,8 +97,11 @@ As an any: favorite color is now chartreuse
 As an any: nickname is now Grumpy
 2 * 1,000,000,000,0000 pennies = 20000000000000 pennies
 Withdrawing $100,000
-Oops. I don't have that much money
-    (I need +99816.67 more)
+1 2 3 4 5 6 7 8 9 10
+Caught Exception: CORBA::OBJECT_NOT_EXIST ('IDL:omg.org/CORBA/OBJECT_NOT_EXIST:1.0')
+    (0, COMPLETED_NO)
+   Non-existent object, delete reference
+, while counting with a destroyed counter
 Successful completion
 ----------
 

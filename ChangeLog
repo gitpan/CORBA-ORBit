@@ -1,3 +1,23 @@
+Sat May  6 11:55:31 2000  Owen Taylor  <otaylor@redhat.com>
+
+	* ORBit.pm README: Released 0.4.1
+
+Sun Apr 16 14:58:20 2000  Owen Taylor  <otaylor@redhat.com>
+
+	* ORBit.xs (CORBA): Copy strings from argv array when 
+	passing to ORBit for initialization. (The code to
+	recreate the array afterwords was reading uninitalized
+	memory.)
+
+Thu Apr 13 11:52:24 2000  Owen Taylor  <otaylor@redhat.com>
+
+	* TODO: Add note about a test suite.
+
+Thu Apr 13 11:48:24 2000  Owen Taylor  <otaylor@redhat.com>
+
+	* README (CORBA): Updated test output to correspond to current
+	client/server pair.
+
 Sat Mar 25 14:47:54 2000  Owen Taylor  <otaylor@redhat.com>
 
 	* Released 0.4.0

@@ -153,13 +153,15 @@ ORB_init (id)
 	    argv = (char **)malloc (sizeof(char *)*argc);
 	    argv[0] = SvPV (ARGV0, PL_na);
 	    for (i=0;i<=av_len(ARGV);i++)
-  	        argv[i+1] = SvPV(*av_fetch(ARGV, i, 0), PL_na);
+  	        argv[i+1] = g_strdup (SvPV(*av_fetch(ARGV, i, 0), PL_na));
 	    
 	    RETVAL = CORBA_ORB_init (&argc, argv, id, &ev);
 	    av_clear (ARGV);
 	
-	    for (i=1;i<argc;i++)
+	    for (i=1;i<argc;i++) {
 	        av_store (ARGV, i-1, newSVpv(argv[i],0));
+		g_free(argv[i]);
+	    }
 	    
 	    if (argv)
 	        free (argv);
