@@ -1,0 +1,65 @@
+Sun Jan  2 19:52:13 2000  Owen Taylor  <otaylor@redhat.com>
+
+	* Released 0.3.0
+
+	* Account.idl: Fix stupid left-in debugging change.
+
+	* README (CORBA): Up version number. Add more information
+	about ORBit dependencies.
+
+Tue Jan  4 03:19:59 2000  Owen Taylor  <otaylor@redhat.com>
+
+	* demarshal.c (porbit_get_exception): Fix bug in
+	demarshalling system exceptions.
+
+	* server.c (porbit_call_method): Fix leak of stack space
+	for operations returning void.
+
+	* server.c (call_implementation): Add a SAVETMPS/FREETMPS
+	around method calls, otherwise we leak like a sieve.
+	(Could also avoid mortalizing outside of our method calls,
+	I think.)
+
+	* ORBit.pm (import): Handle absolute pathnames correctly.
+
+Tue Dec  7 13:56:33 1999  Owen Taylor  <otaylor@redhat.com>
+
+	* idl.c (porbit_parse_idl_file): Add the IDLF_TYPECODES
+	flag so that typecodes are understood.
+	(From Michael Meeks <mmeeks@gnu.org>)
+
+Fri Oct  8 01:08:26 1999  Owen Taylor  <otaylor@redhat.com>
+
+	* Released 0.2.0.
+
+	* porbit-perl.h (PL_sv_undef): Add additional compatibility
+	defines.
+
+Mon Sep 27 23:31:41 1999  Owen Taylor  <otaylor@redhat.com>
+
+	* ORBit.xs: Made orb->run()/shutdown(), etc, use
+	  g_main.
+
+	* idl.c marshal.c demarshal.c: Add support for fixed.
+
+Tue Sep 21 22:53:40 1999  Owen Taylor  <otaylor@redhat.com>
+
+	* idl.c: Add names into struct/enum/except/etc. typecodes
+	because the marshalling code in ORBit expects them
+	(spec says that "" would be valid, so we could use
+	that, but NULL segfaults).
+
+	* marshal.c demarshal.c ORBit.pm: Add support for Anys.
+
+	* ORBit.xs interfaces.c: Provide an interface for
+	creating TypeCodes.
+
+	* client.c: Split stubs into a separate file.
+	
+	* interfaces.c server.c: Add support for oneway
+	operations.
+
+Sun Sep 19 04:24:13 1999  Owen Taylor  <otaylor@redhat.com>
+
+	* Started ChangeLog in preparation for a 0.1.0 release.
+
