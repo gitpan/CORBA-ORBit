@@ -380,6 +380,11 @@ call_implementation (PORBitServant           *servant,
 					     NULL,
 					     recv_buffer->message.u.request.request_id, 
 					     CORBA_NO_EXCEPTION);
+
+    if (!send_buffer) {
+	warn ("Lost connection to client while sending result of call to %s::%s", servant_classname (servant), name);
+	goto cleanup;
+    }
     
     stack_index = 1;
     inout_index = 0;
@@ -447,6 +452,13 @@ call_implementation (PORBitServant           *servant,
 						 NULL,
 						 recv_buffer->message.u.request.request_id, 
 						 type);
+
+	if (!send_buffer) {
+	    warn ("Lost connection to client while sending exception from call to %s::%s.\n   %s", servant_classname (servant), name, SvPV (error_sv, PL_na));
+	    SvREFCNT_dec (error_sv);
+	    
+	    goto out;
+	}
 
 	new_error = porbit_put_exception (send_buffer, NULL, error_sv, exceptions);
 	

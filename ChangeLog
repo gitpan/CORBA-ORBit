@@ -1,3 +1,37 @@
+Wed Oct 25 03:51:29 2000  Owen Taylor  <otaylor@redhat.com>
+
+	* ORBit.pm up version to 0.4.3.
+
+Wed Oct 25 03:46:54 2000  Owen Taylor  <otaylor@redhat.com>
+
+	* server.c (call_implementation): Account for the
+	fact that giop_send_reply_buffer_use() may return
+	NULL if the connection to the client has already
+	been closed.
+
+	* ORBit/mapping.pod: Fix to be a proper manpage, if
+	worse HTML.
+
+Wed Oct 25 03:23:29 2000  Owen Taylor  <otaylor@redhat.com>
+
+	* README MANIFEST ORBit/mapping.pod: Check in the
+	mapping.pod document originally from CORBA::MICO
+	with ORBit revisions from my web site.
+
+	* ORBit.xs (CORBA): Apply patch from Paolo Molaro
+	to fix memory leak of argv strings recognized
+	by ORBit.
+
+Tue Oct 10 15:09:13 2000    <otaylor@redhat.com>
+
+	* ORBit.xs (MODULE): Fix typo reported davide.rossetti.
+
+Tue Jul 11 14:38:24 2000  Owen Taylor  <otaylor@redhat.com>
+
+	* demarshal.c (get_sequence): Fix problem with the
+	length of sequences of octets and chars. (Bug
+	found by Guillaume Schmid.)
+
 Sat Jul  8 15:04:22 2000  Owen Taylor  <otaylor@redhat.com>
 
 	* ORBit.pm README: Up version to 0.4.2

@@ -218,8 +218,8 @@ get_sequence (GIOPRecvBuffer *buf, CORBA_TypeCode tc)
     if (tc->subtypes[0]->kind == CORBA_tk_octet ||
 	tc->subtypes[0]->kind == CORBA_tk_char) {
 
-	res = newSV(len);
-	SvCUR_set(res, len+1);
+	res = newSV(len+1);
+	SvCUR_set(res, len);
 	SvPOK_on (res);
 	strbuf = SvPVX(res);
 

@@ -138,6 +138,7 @@ ORB_init (id)
     {
 	int argc, i;
 	char ** argv;
+        SV ** new_argv;
 	AV * ARGV;
 	SV * ARGV0;
 
@@ -153,18 +154,25 @@ ORB_init (id)
 	    argv = (char **)malloc (sizeof(char *)*argc);
 	    argv[0] = SvPV (ARGV0, PL_na);
 	    for (i=0;i<=av_len(ARGV);i++)
-  	        argv[i+1] = g_strdup (SvPV(*av_fetch(ARGV, i, 0), PL_na));
+                argv[i+1] = SvPV(*av_fetch(ARGV, i, 0), PL_na);
 	    
 	    RETVAL = CORBA_ORB_init (&argc, argv, id, &ev);
-	    av_clear (ARGV);
-	
-	    for (i=1;i<argc;i++) {
-	        av_store (ARGV, i-1, newSVpv(argv[i],0));
-		g_free(argv[i]);
-	    }
-	    
-	    if (argv)
-	        free (argv);
+
+	    /* Note that we must create the new strings before
+             * we clear the array and free the old ones.
+	     */
+            new_argv = (SV**)malloc(sizeof(SV*)*(argc-1));
+            for (i=1;i<argc;i++)
+                new_argv[i-1] = newSVpv(argv[i],0);
+            av_clear (ARGV);
+ 
+            for (i=1;i<argc;i++)
+                av_store (ARGV, i-1, new_argv[i-1]);
+ 
+            if (argv)
+                free (argv);
+            if (new_argv)
+                free (new_argv);
 
 	    CHECK_EXCEPTION (ev);
 
@@ -238,7 +246,7 @@ resolve_initial_references (self, str)
 	} else if (strcmp (str, "RootPOA") == 0) {
 	    RETVAL = newSV(0);
 	    sv_setref_pv(RETVAL, "PortableServer::POA", result);
-	} else if (!strcmp (str, "POACurrent") == 0) {
+	} else if (strcmp (str, "POACurrent") == 0) {
 	    RETVAL = newSV(0);
 	    sv_setref_pv(RETVAL, "PortableServer::Current", result);
 	} else {

@@ -9,6 +9,7 @@ ORBit/Fixed.pm
 ORBit/LongDouble.pm
 ORBit/LongLong.pm
 ORBit/ULongLong.pm
+ORBit/mapping.pod
 README
 TODO
 Tictactoe.idl

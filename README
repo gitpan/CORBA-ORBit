@@ -1,4 +1,4 @@
-CORBA::ORBit 0.4.2
+CORBA::ORBit 0.4.3
 ==================
 
 CORBA::ORBit is a Perl binding for ORBit. It is based
@@ -122,10 +122,22 @@ Run two copies of the 'tictactoe' program
 Documentation
 =============
 
-Information about the mapping of CORBA onto Perl is
-available from:
+General information about a mapping of CORBA onto Perl is in
+the available in the file 'ORBit/mapping.pod'. This POD 
+document can be viewed on the screen using the 'perldoc' program:
+
+  perldoc ORBit/mapping.pod
+
+or converted to a variety of formats, for example:
+
+  pod2html ORBit/mapping.pod > ORBit/mapping.html
+
+They will also be installed as manual pages.
+
+The HTML form can also be found at:  
 
  http://people.redhat.com/otaylor/corba/mapping.html
+
 
 
 License
