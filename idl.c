@@ -29,7 +29,7 @@ alloc_typecode ()
     return duplicate_typecode (result);
 }
 
-CORBA_TypeCode
+static CORBA_TypeCode
 get_declarator_typecode (IDL_tree tree, CORBA_TypeCode base_type)
 {
     if (IDL_NODE_TYPE (tree) == IDLN_TYPE_ARRAY) {
@@ -61,13 +61,13 @@ get_declarator_typecode (IDL_tree tree, CORBA_TypeCode base_type)
 	return duplicate_typecode (base_type);
 	
     } else {
-	g_warning ("get_decl_typecode() called on non-ident / non-array");
+	g_warning ("get_declarator_typecode() called on non-ident / non-array");
     }
 
     return NULL;
 }
 
-gchar *
+static gchar *
 get_declarator_name (IDL_tree tree)
 {
     if (IDL_NODE_TYPE (tree) == IDLN_TYPE_ARRAY) {
@@ -77,10 +77,27 @@ get_declarator_name (IDL_tree tree)
 	return g_strdup (IDL_IDENT(tree).str);
 
     } else {
-	g_warning ("get_decl_name called on non-ident / non-array");
+	g_warning ("get_declator_name called on non-ident / non-array");
     }
 
     return NULL;
+}
+
+static gchar *
+peek_declarator_repoid (IDL_tree tree)
+{
+    if (IDL_NODE_TYPE (tree) == IDLN_TYPE_ARRAY) {
+	return IDL_IDENT_REPO_ID(IDL_TYPE_ARRAY (tree).ident);
+
+    } else if (IDL_NODE_TYPE (tree) == IDLN_IDENT) {
+	return IDL_IDENT_REPO_ID(tree);
+
+    } else {
+	g_warning ("peek_declarator_repoid called on non-ident / non-array");
+	return NULL;
+    }
+
+
 }
 
 static CORBA_TypeCode
@@ -644,7 +661,7 @@ get_typecode (IDL_tree tree)
     case IDLN_TYPE_WIDE_CHAR:
 	return duplicate_typecode (TC_CORBA_wchar);
 
-	/* Comlex types */
+	/* Complex types */
     case IDLN_TYPE_ENUM:
 	return get_enum_typecode (tree);
     case IDLN_EXCEPT_DCL:
@@ -877,6 +894,26 @@ do_except(IDL_tree tree)
     g_free (abs_name);
 }
 
+static void
+do_type_dcl(IDL_tree tree)
+{
+    IDL_tree type_spec = IDL_TYPE_DCL(tree).type_spec;
+    IDL_tree dcls = IDL_TYPE_DCL(tree).dcls;
+
+    while (dcls) {
+	IDL_tree dcl = IDL_LIST(dcls).data;
+	char *repoid = peek_declarator_repoid (dcl);
+	CORBA_TypeCode tc;
+
+	if (repoid && !porbit_find_typecode (repoid)) {
+	    tc = get_declarator_typecode (dcl, get_typecode (type_spec));
+	    porbit_store_typecode (repoid, tc);
+	}
+	
+	dcls = IDL_LIST(dcls).next;	
+    }
+}
+
 typedef struct {
     GSList *operations;
     GSList *attributes;
@@ -899,6 +936,7 @@ tree_pre_func (IDL_tree_func_data *tfd, gpointer user_data)
 	idata->attributes = NULL;
 	
 	tfd->data = idata;
+
 	return TRUE;
 	
     case IDLN_ATTR_DCL:
@@ -919,6 +957,9 @@ tree_pre_func (IDL_tree_func_data *tfd, gpointer user_data)
 	return FALSE;
     case IDLN_EXCEPT_DCL:
 	do_except (tfd->tree);
+	return FALSE;
+    case IDLN_TYPE_DCL:
+	do_type_dcl (tfd->tree);
 	return FALSE;
 
     default:
@@ -993,6 +1034,7 @@ define_interface (IDL_tree tree, InterfaceData *idata)
 	porbit_init_interface (desc, abs_name, &ev);
 	if (ev._major != CORBA_NO_EXCEPTION) {
 	    warn ("Registering interface '%s' failed!\n", abs_name);
+	    CORBA_exception_free (&ev);
 	}
 
 	g_free (abs_name);
@@ -1002,8 +1044,29 @@ static gboolean
 tree_post_func (IDL_tree_func_data *tfd, gpointer user_data)
 {
     if (IDL_NODE_TYPE (tfd->tree) == IDLN_INTERFACE) {
-
 	define_interface (tfd->tree, tfd->data);
+    }
+
+    /* Store a typecode for the type, if necessary
+     */
+    switch (IDL_NODE_TYPE (tfd->tree)) {
+    case IDLN_TYPE_ENUM:
+	get_enum_typecode (tfd->tree);
+	break;
+    case IDLN_EXCEPT_DCL:
+	get_exception_typecode (tfd->tree);
+	break;
+    case IDLN_INTERFACE:
+	get_interface_typecode (tfd->tree);
+	break;
+    case IDLN_TYPE_STRUCT:
+	get_struct_typecode (tfd->tree);
+	break;
+    case IDLN_TYPE_UNION:
+	get_union_typecode (tfd->tree);
+	break;
+    default:
+	break;
     }
 
     return CORBA_TRUE;
@@ -1016,8 +1079,15 @@ porbit_parse_idl_file (const char *file)
   IDL_ns ns;
   int ret;
 
-  ret = IDL_parse_filename (file, "-D__ORBIT_IDL__ ", NULL, &tree, &ns,
-			    IDLF_TYPECODES, IDL_WARNING1);
+  /* In theory, we should -D__ORBIT_IDL__ here, to allow
+   * people to handle libIDL peculiarities. However, the
+   * main thing people enable with #ifdef __ORBIT_IDL__
+   * is #pragma push inhibit, which breaks us badly, since
+   * we can't rely on the definitions in some C library!
+   */
+  ret = IDL_parse_filename (file, "", NULL, &tree, &ns,
+			    IDLF_TYPECODES | IDLF_CODEFRAGS,
+			    IDL_WARNING1);
 
   if (ret == IDL_ERROR) {
       warn ("Error parsing IDL");

@@ -56,17 +56,20 @@ store_interface_description (CORBA_InterfaceDef_FullInterfaceDescription *desc,
     return info;
 }
 
-static void
-ensure_iface_repository (void)
+static gboolean
+ensure_iface_repository (CORBA_Environment *ev)
 {
-    CORBA_Environment ev;
-    CORBA_exception_init (&ev);
-    
     if (iface_repository == NULL)
-	iface_repository = CORBA_ORB_resolve_initial_references(porbit_orb, "InterfaceRepository", &ev);
+	iface_repository = CORBA_ORB_resolve_initial_references(porbit_orb, "InterfaceRepository", ev);
     
-    if (ev._major != CORBA_NO_EXCEPTION || iface_repository == NULL)
-	croak("Cannot locate interface repository");
+    if (ev->_major != CORBA_NO_EXCEPTION || iface_repository == NULL) {
+	
+	CORBA_exception_set_system (ev, ex_CORBA_INTF_REPOS, CORBA_COMPLETED_NO);
+	warn("Cannot locate interface repository");
+	return FALSE;
+    }
+
+    return TRUE;
 }
 
 static void
@@ -79,6 +82,9 @@ define_exception (const char *repoid, CORBA_Environment *ev)
     if (porbit_find_exception(repoid))
 	return;
 
+    if (!ensure_iface_repository (ev))
+	goto error;
+    
     contained = CORBA_Repository_lookup_id (iface_repository, ((char *)repoid), ev);
     if (ev->_major != CORBA_NO_EXCEPTION)
 	goto error;
@@ -131,6 +137,9 @@ load_ancestor (const char *id, CORBA_Environment *ev)
     if (info)
 	return info;
 
+    if (!ensure_iface_repository (ev))
+	return NULL;
+    
     base = CORBA_Repository_lookup_id (iface_repository, (char *)id, ev);
     if (ev->_major != CORBA_NO_EXCEPTION || !base)
 	return NULL;
@@ -197,8 +206,11 @@ porbit_init_interface (CORBA_InterfaceDef_FullInterfaceDescription *desc,
 
     for (i = 0; i < desc->base_interfaces._length ; i++) {
 	PORBitIfaceInfo *info = load_ancestor (desc->base_interfaces._buffer[i], ev);
-	if (ev->_major != CORBA_NO_EXCEPTION)
+	if (ev->_major != CORBA_NO_EXCEPTION) {
+	    warn ("Can't find interface description for ancestor '%s'",
+		  desc->base_interfaces._buffer[i]);
 	    return NULL;
+	}
 	
 	if (info)
 	    av_push (isa_av, newSVpv(info->pkg, 0));
@@ -335,7 +347,6 @@ porbit_load_contained (CORBA_Contained _contained, const char *_id, CORBA_Enviro
     
     CORBA_Contained contained;
 
-    ensure_iface_repository ();
     assert (_contained != NULL || _id != NULL);
 
     id = (CORBA_char *)_id;
@@ -354,6 +365,9 @@ porbit_load_contained (CORBA_Contained _contained, const char *_id, CORBA_Enviro
 	}
 
     } else {
+	if (!ensure_iface_repository (ev))
+	    return NULL;
+	
 	contained = CORBA_Repository_lookup_id (iface_repository, id, ev);
 	if (ev->_major != CORBA_NO_EXCEPTION)
 	    return NULL;

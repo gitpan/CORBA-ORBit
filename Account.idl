@@ -3,7 +3,7 @@ module Account {
   const long DAILY_MAX = 1000;
 
   typedef char Face[6][10];
-  typedef fixed<16,2> Amount;
+  typedef fixed<16,2> Amount, Amounts[10];
 #  typedef long Amount;
 
   interface AcctCounter {

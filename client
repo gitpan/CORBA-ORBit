@@ -86,4 +86,10 @@ try {
     print "Caught $_[0], while counting with a destroyed counter\n";
 };
 
+# Try getting some typecodes
+
+my $tc1 = new CORBA::TypeCode "IDL:Account/Account/Preferences:1.0";
+my $tc2 = new CORBA::TypeCode "IDL:Account/Amounts:1.0";
+my $tc3 = new CORBA::TypeCode "IDL:CORBA/Double:1.0";
+
 print "Successful completion\n"

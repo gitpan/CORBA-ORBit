@@ -1,4 +1,4 @@
-CORBA::ORBit 0.4.1
+CORBA::ORBit 0.4.2
 ==================
 
 CORBA::ORBit is a Perl binding for ORBit. It is based

@@ -1,3 +1,24 @@
+Sat Jul  8 15:04:22 2000  Owen Taylor  <otaylor@redhat.com>
+
+	* ORBit.pm README: Up version to 0.4.2
+
+	* idl.c (tree_post_func, do_type_dcl): Register typecodes
+	for all named types, not just named types that happen
+	to be referenced elsewhere.
+
+	* idl.c (porbit_parse_idl_file): Remvoing -D__ORBIT_IDL__
+	since with it, the GNOME IDL files break badly
+	by using #pragma inhibit push to avoid compiling bits
+	that are predefined in C libraries.
+
+	* idl.c (porbit_parse_idl_file): Enable codefrag
+	syntax, since GNORBA uses it.
+
+	* interfaces.c (load_ancestor): call ensure_iface_repository,
+	before trying to access iface repository. Also, try
+	to produce a bit more graceful warnings and death
+	when things aren't found.
+
 Sat May  6 11:55:31 2000  Owen Taylor  <otaylor@redhat.com>
 
 	* ORBit.pm README: Released 0.4.1
