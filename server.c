@@ -131,6 +131,37 @@ porbit_get_repoid (SV *perlobj)
     return result;
 }
 
+static gboolean
+is_a_recurse (CORBA_InterfaceDef_FullInterfaceDescription *desc,
+	      const char *repo_id)
+{
+    CORBA_unsigned_long i;
+     
+    if (strcmp (desc->id, repo_id) == 0)
+	return TRUE;
+
+    for (i = 0; i < desc->base_interfaces._length; i++) {
+        PORBitIfaceInfo *info = porbit_find_interface_description(desc->base_interfaces._buffer[i]);
+	if (info) {
+	    if (is_a_recurse(info->desc, repo_id))
+		return TRUE;
+	}
+    }
+
+    return FALSE;
+}
+
+gboolean
+porbit_servant_is_a (SV *perlobj, const char *repo_id)
+{
+    PORBitInstVars *iv;
+    PORBitServant *servant;
+
+    iv = porbit_instvars_get (perlobj);
+    servant = (PORBitServant *)iv->servant;
+
+    return is_a_recurse (servant->desc, repo_id);
+}
 
 static PortableServer_Servant
 porbit_get_orbit_servant (SV *perlobj)
@@ -349,9 +380,7 @@ call_implementation (PORBitServant           *servant,
 		    inout_args = newAV();
 	    
 		av_push(inout_args,arg);
-		XPUSHs(sv_2mortal(newRV_noinc(arg)));
-
-		return_items++;
+		XPUSHs(sv_2mortal(newRV_inc(arg)));
 	    } else {
 		XPUSHs(sv_2mortal(arg));
 	    }
@@ -363,18 +392,14 @@ call_implementation (PORBitServant           *servant,
     PUTBACK;
     error_sv = porbit_call_method (servant, name, return_items);
     if (error_sv)
-	goto cleanup;
+	goto clean2;
 
     /* The call succeeded -- decode the results */
 
     SPAGAIN;
-    sp -= return_items;
-    PUTBACK;
-    
-    if (!recv_buffer->message.u.request.response_expected) {
-	/* FIXME: free stack items */
+
+    if (!recv_buffer->message.u.request.response_expected)
 	goto cleanup;
-    }
 
     send_buffer = giop_send_reply_buffer_use(GIOP_MESSAGE_BUFFER(recv_buffer)->connection,
 					     NULL,
@@ -388,6 +413,8 @@ call_implementation (PORBitServant           *servant,
     
     stack_index = 1;
     inout_index = 0;
+
+
     for (i = 0; i < nparams; i++) {
 	CORBA_boolean success;
 	
@@ -395,7 +422,7 @@ call_implementation (PORBitServant           *servant,
 	case CORBA_PARAM_IN:
 	    continue;
 	case CORBA_PARAM_OUT:
-	    success = porbit_put_sv (send_buffer, params[i].type, *(sp+stack_index++));
+	    success = porbit_put_sv (send_buffer, params[i].type, *(sp-return_items+stack_index++));
 	    break;
 	case CORBA_PARAM_INOUT:
 	    success = porbit_put_sv (send_buffer, params[i].type, *av_fetch(inout_args, inout_index++, 0));
@@ -413,6 +440,10 @@ call_implementation (PORBitServant           *servant,
     giop_send_buffer_write (send_buffer);
 
  cleanup:
+    sp -= return_items;
+    PUTBACK;
+
+ clean2:
     if (inout_args) {
 	av_undef (inout_args);
 	inout_args = NULL;
@@ -569,7 +600,7 @@ find_operation (CORBA_InterfaceDef_FullInterfaceDescription *d, const char *name
     return NULL;
 }
 
-CORBA_AttributeDescription *
+static CORBA_AttributeDescription *
 find_attribute (CORBA_InterfaceDef_FullInterfaceDescription *d,
 		const char *name, bool set) 
 {
@@ -591,7 +622,6 @@ find_attribute (CORBA_InterfaceDef_FullInterfaceDescription *d,
     }
     return NULL;
 }
-
 
 static ORBitSkeleton
 porbit_get_skel (PORBitServant  *servant,
@@ -620,7 +650,7 @@ porbit_get_skel (PORBitServant  *servant,
 	    *impl = op_desc;
 	    return (ORBitSkeleton)porbit_operation_skel;
 	}
-    }
+    } 
 
    return (ORBitSkeleton)NULL;
 }  

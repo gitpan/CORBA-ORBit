@@ -4,7 +4,7 @@
 #include <ctype.h>
 
 SV *
-ll_from_longlong (long long val)
+porbit_ll_from_longlong (long long val)
 {
     SV *rv;
     SV *result = newSV(0);
@@ -19,7 +19,7 @@ ll_from_longlong (long long val)
 }
 
 SV *
-ull_from_ulonglong (unsigned long long val)
+porbit_ull_from_ulonglong (unsigned long long val)
 {
     SV *rv;
     SV *result = newSV(0);
@@ -34,7 +34,7 @@ ull_from_ulonglong (unsigned long long val)
 }
 
 SV *
-ld_from_longdouble (long double val)
+porbit_ld_from_longdouble (long double val)
 {
     SV *rv;
     SV *result = newSV(sizeof(long double));
@@ -58,7 +58,7 @@ ld_from_longdouble (long double val)
  */
 
 long long
-longlong_from_string (const char *str)
+porbit_longlong_from_string (const char *str)
 {
     long long val = 0;
     int negate = 0;
@@ -79,8 +79,8 @@ longlong_from_string (const char *str)
 
     while (*str) {
 	if (isdigit (*str)) {
-	    val += *str - '0';
 	    val *= 10;
+	    val += *str - '0';
 	} else if (!isspace (*str))
 	    break;
 	str++;
@@ -93,7 +93,7 @@ longlong_from_string (const char *str)
 }
 
 char *
-longlong_to_string (long long val)
+porbit_longlong_to_string (long long val)
 {
     int length = 2;
     char *str;
@@ -135,7 +135,7 @@ longlong_to_string (long long val)
 }
 
 unsigned long long
-ulonglong_from_string (const char *str)
+porbit_ulonglong_from_string (const char *str)
 {
     unsigned long long val = 0;
       
@@ -151,8 +151,8 @@ ulonglong_from_string (const char *str)
 
     while (*str) {
 	if (isdigit (*str)) {
-	    val += *str - '0';
 	    val *= 10;
+	    val += *str - '0';
 	} else if (!isspace (*str))
 	    break;
 	str++;
@@ -162,7 +162,7 @@ ulonglong_from_string (const char *str)
 }
 
 char *
-ulonglong_to_string (unsigned long long val)
+porbit_ulonglong_to_string (unsigned long long val)
 {
     int length = 2;
     char *str;
@@ -196,7 +196,7 @@ ulonglong_to_string (unsigned long long val)
 }
 
 long double 
-longdouble_from_string (const char *str)
+porbit_longdouble_from_string (const char *str)
 {
     int decimal = 0x7FFFFFFF;
     int exponent = 0;
@@ -302,7 +302,7 @@ longdouble_from_string (const char *str)
 }
 
 char *
-longdouble_to_string (long double val)
+porbit_longdouble_to_string (long double val)
 {
     int count;
     int invert;

@@ -11,7 +11,11 @@ module Account {
     void destroy();
   };
 
-  interface Account {
+  interface BaseAccount {
+    Object echo_object (in Object obj);
+  };
+
+  interface Account : BaseAccount {
     exception InsufficientFunds { Amount overdraft; };
     
     typedef sequence<short> numbers;
@@ -38,6 +42,7 @@ module Account {
     
     attribute Preferences prefs;
     attribute Face appearance;
+    readonly attribute string Foo;
 
 
     void set_pref ( in Preference p );

@@ -1,6 +1,150 @@
+Sat May  4 23:48:42 2002  Huw Rogers  <rogers@building2.co.jp>
+
+	* require ORBit 0.5.13 in Makefile.PL
+
+	* up version to 0.4.4 (prepare for 0.4.4 release)
+
+	* idl_path fix (fix originally from Owen?)
+
+	* support declaration of global enums in IDL
+
+	* null / void Any support
+
+	* various spelling/typo corrections in error messages
+
+	* _narrow() patch (from Alex)
+
+	* _is_a() fix
+
+	* create_reference_object_with_id() renamed to
+	  create_reference_with_id () (suggestion from mail list)
+
+	* CORBA::MICO reference in ORBit.xs fixed to CORBA::ORBit
+
+	* marshalling / demarshalling of complex mixed sequences of in, inout
+	  and out parameters fixed to comply with Owen's Perl mapping spec
+
+	* references to mico renamed to orbit in error messages
+
+	* XSRETURN() appropriately from stubs according to GIMME_V (wantarray),
+	  for correct behaviour in array, scalar and void contexts
+
+	* non-portable C constructs fixed (tested on Solaris / WorkShop CC)
+
+	* typecode memory management bug fix
+
+	* check arguments to _repoid()
+
+	* reduced fragility of put_objref()
+
+	* if a structure field is not defined in the Perl hash, then it is
+	  marshalled as if undef; warning printed if -w
+
+	* if a sequence is an undef, it is marshalled as a zero length
+	  sequence; warning printed if -w
+
+	* if an any is an undef, it is marshalled as a null Any;
+	  warning printed if -w
+
+Thu Feb  8 22:08:43 2001  Owen Taylor  <otaylor@redhat.com>
+
+	* demarshal.c (get_string): Catch 0 length strings
+	that VisiBroker for Java generates. (Problem reported
+	by Simon Kirby and Calin Medianu.)
+
+Wed Feb  7 01:45:00 2001  Owen Taylor  <otaylor@redhat.com>
+
+	* server: Add some tests for timeouts and io_watches.
+
+	* ORBit.xs extras.[ch]: Add simple main loop facilities
+	for IO watches and timeouts. (A little more code than I'd
+	like, but mostly because of the argument parsing
+	code in add_timeout, add_io_watch.)
+
+	* demarshal.c (get_fixed): Add missing PUTBACK
+
+Sun Feb  4 22:34:32 2001  Owen Taylor  <otaylor@redhat.com>
+
+	* interfaces.c: Register a _is_a method for Corba::Object.
+
+	* server.[ch] (porbit_servant_is_a): Add method to
+	check whether a servant derives from a given repo_id.
+
+	* ORBit.xs: Add PortableServant::ServantBase::_is_a.
+
+	* idl.c (define_interface): Add the CORBA::ORBit base class 
+	to base_interfaces if it is otherwise empty.
+	 
+        * Account.idl client server: test CORBA::Object::_is_a.
+
+	* client.c: Handle the case where someone calls
+	Some::CORBA::method(undef).
+
+Sun Feb  4 20:46:25 2001  Owen Taylor  <otaylor@redhat.com>
+
+	* client server Account.idl: Add test for marshalling
+	CORBA::Object and for downcasting.
+
+	* interfaces.c marshal.c: Handle CORBA::Object by
+	registering a dummy interface description. (Problem
+	reported by Davide Rossetti)
+
+Sun Feb  4 17:52:25 2001  Owen Taylor  <otaylor@redhat.com>
+
+	* ORBit.xs demarshal.c exttypes.[ch] idl.c interfaces.c
+  	  marshal.c server.c typemap.
+	Apply patch from Paolo Molaro to namespace
+	some exported functions (the ones in exttypes.h)
+	and make the rest static.
+
+	* server.h (struct _PORBitInstVars): Fix C++ comment.
+
+	* exttypes.h (longdouble_to_string): fix #endif FOO
+
+	* errors.c: Fix some incorrect exception repoid's.
+	(Ian Campbell)
+	
+	* client.c (do_marshal): Fix bug reported by Tobias
+	Engel where responses were being sent for oneway
+	requests.
+
+	* server.c (call_implementation): Don't call PUTBACK
+	until after we marshal all the return items, since
+	if marshalling ends up calling function calls,
+	we'll leak the stack items. (Fixes memleaks reported 
+	by Todd Lewis)
+
+	* Makefile.PL: Add PREREQ_PM for Error dependency.
+	(Tim Jenness)
+
+	* exttypes.c ([u]longlong_from_string): Fix problem
+	where values were off by a factor of 10. (Pelle Johnsen)
+
+	* Makefile.PL: Require ORBit 0.5.7.
+
+	* demarshal.c (RECV_BUFFER_LEFT): Add the number of
+	bytes in the header, due to changes in ORBit-0.5.6.
+
+Wed Dec 13 20:16:58 2000  Owen Taylor  <otaylor@redhat.com>
+
+	* ORBit.xs idl.[ch]: Allow passing in flags for IDL compiler.
+
+	* ORBit.pm: Pass directories from idl_path as -I flags
+	to the IDL compiler.
+
+Sat Nov 18 03:03:24 2000  Owen Taylor  <otaylor@redhat.com>
+
+	* ORBit.xs: Add implementation of 
+	CORBA::ORB::list_initial_services based on that
+	of Roger L Gulbranson.
+
 Wed Oct 25 03:51:29 2000  Owen Taylor  <otaylor@redhat.com>
 
 	* ORBit.pm up version to 0.4.3.
+
+Thu Nov 16 12:10:10 2000  Owen Taylor  <otaylor@redhat.com>
+
+	* README: Fix link to ORBit sources (reported by Jon Antonovics)
 
 Wed Oct 25 03:46:54 2000  Owen Taylor  <otaylor@redhat.com>
 

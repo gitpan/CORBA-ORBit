@@ -120,6 +120,7 @@ define_method (const char *pkg, const char *prefix, const char *name, I32 index)
 
 XS(_porbit_repoid) {
     dXSARGS;
+    if (items != 1) croak("Usage: _repoid(self)");
 
     ST(0) = (SV *)CvXSUBANY(cv).any_ptr;
 
@@ -216,10 +217,6 @@ porbit_init_interface (CORBA_InterfaceDef_FullInterfaceDescription *desc,
 	    av_push (isa_av, newSVpv(info->pkg, 0));
     }
 
-    if (desc->base_interfaces._length == 0) {
-	av_push (isa_av, newSVpv("CORBA::Object", 0));
-    }
-
     /* Set up the server side package
      */
     tmp_str = g_strconcat ("POA_", info->pkg, "::ISA", NULL);
@@ -274,7 +271,7 @@ load_container (CORBA_Container container, PORBitIfaceInfo *info, CORBA_Environm
 	
 	for (i = 0; i<contents->_length; i++)
 	    ;
-	    //porbit_init_constant (pkgname, contents->_buffer[i]);
+  	    /* porbit_init_constant (pkgname, contents->_buffer[i]); */
     }
     CORBA_free (contents);
     
@@ -308,7 +305,7 @@ load_container (CORBA_Container container, PORBitIfaceInfo *info, CORBA_Environm
 
 }
 
-PORBitIfaceInfo *
+static PORBitIfaceInfo *
 load_interface (CORBA_InterfaceDef iface, CORBA_Environment *ev)
 {
     CORBA_InterfaceDef_FullInterfaceDescription *desc;
@@ -408,6 +405,7 @@ porbit_load_contained (CORBA_Contained _contained, const char *_id, CORBA_Enviro
 	load_container (contained, retval, ev);
 	break;
     default:
+      break;
     }
 
  error:
@@ -446,8 +444,57 @@ porbit_store_typecode (const char *repoid, CORBA_TypeCode tc)
 }
 
 void
+porbit_remove_typecode (const char *repoid)
+{
+    if (typecode_hash)
+	g_hash_table_remove (typecode_hash, repoid);
+}
+
+void
+porbit_init_interfaces (void)
+{
+    CORBA_Environment ev;
+    
+    CORBA_InterfaceDef_FullInterfaceDescription *desc;
+    
+    desc = g_new (CORBA_InterfaceDef_FullInterfaceDescription, 1);
+    desc->name = "Object";
+    desc->id = "IDL:CORBA/Object:1.0";
+    
+    desc->operations._maximum = 0;
+    desc->operations._length = 0;
+    desc->operations._buffer = NULL;
+    desc->operations._release = FALSE;
+
+    desc->attributes._maximum = 0;
+    desc->attributes._length = 0;
+    desc->attributes._buffer = NULL;
+    desc->attributes._release = FALSE;
+    
+    desc->base_interfaces._maximum = 0;
+    desc->base_interfaces._length = 0;
+    desc->base_interfaces._buffer = NULL;
+    desc->base_interfaces._release = FALSE;
+    
+    desc->version = NULL;
+    desc->defined_in = NULL;
+    desc->type = NULL;
+    
+    CORBA_exception_init (&ev);
+    porbit_init_interface (desc, "CORBA::Object", &ev);
+    if (ev._major != CORBA_NO_EXCEPTION) {
+	warn ("Registering interface 'CORBA::Object' failed!\n");
+	CORBA_exception_free (&ev);
+    }
+}
+
+void
 porbit_init_typecodes  (void)
 {
+    porbit_store_typecode ("IDL:CORBA/Null:1.0",
+			   duplicate_typecode(TC_null));
+    porbit_store_typecode ("IDL:CORBA/Void:1.0",
+			   duplicate_typecode(TC_void));
     porbit_store_typecode ("IDL:CORBA/Short:1.0", 
 			   duplicate_typecode(TC_CORBA_short));
     porbit_store_typecode ("IDL:CORBA/Long:1.0", 

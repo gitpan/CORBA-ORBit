@@ -14,7 +14,7 @@ put_short (GIOPSendBuffer *buf, SV *sv)
     IV iv = SvIV(sv);
     CORBA_short v = iv;
 
-    if (v != iv) {
+    if ((IV)v != iv) {
 	warn ("CORBA::Short out of range");
 	return CORBA_FALSE;
     }
@@ -29,7 +29,7 @@ put_long (GIOPSendBuffer *buf, SV *sv)
     IV iv = SvIV(sv);
     CORBA_long v = iv;
 
-    if (v != iv) {
+    if ((IV)v != iv) {
 	warn ("CORBA::Long out of range");
 	return CORBA_FALSE;
     }
@@ -44,7 +44,7 @@ put_ushort (GIOPSendBuffer *buf, SV *sv)
     IV iv = SvIV(sv);
     CORBA_unsigned_short v = iv;
 
-    if (v != iv) {
+    if ((IV)v != iv) {
 	warn ("CORBA::UShort out of range");
 	return CORBA_FALSE;
     }
@@ -68,7 +68,7 @@ put_float (GIOPSendBuffer *buf, SV *sv)
     double nv = SvNV(sv);
     CORBA_float v = nv;
 
-    /* FIXME: add a correct warnings */
+    /* FIXME: add a correct warning */
     /*    if ((CORBA::Float)v != v) {
 	warn ("CORBA::Float out of range");
 	return CORBA_FALSE;
@@ -191,12 +191,11 @@ put_struct (GIOPSendBuffer *buf, CORBA_TypeCode tc, SV *sv)
 
     for (i = 0; i<tc->sub_parts; i++) {
 	SV **valp = hv_fetch (hv, (char *)tc->subnames[i], strlen(tc->subnames[i]), 0);
-	if (!valp) {
-	    warn ("Missing structure member '%s'", tc->subnames[i]);
-	    return CORBA_FALSE;
-	}
-	
-	if (!porbit_put_sv (buf, tc->subtypes[i], *valp))
+
+	if (!valp && PL_dowarn)
+	    warn ("Uninitialized structure member '%s'", tc->subnames[i]);
+
+	if (!porbit_put_sv (buf, tc->subtypes[i], valp ? *valp : &PL_sv_undef))
 	    return CORBA_FALSE;
     }
 
@@ -210,11 +209,17 @@ put_sequence (GIOPSendBuffer *buf, CORBA_TypeCode tc, SV *sv)
     
     CORBA_unsigned_long len, i;
 
-    /* get length, check type (FIXME: off by one???)
-     */
+    if (sv == &PL_sv_undef) {
+	if (PL_dowarn)
+	    warn ("Uninitialized sequence");
+        len = 0;
+	buf_putn (buf, &len, sizeof (len));
+	return CORBA_TRUE;
+    }
+
+    /* get length, check type */
     if (tc->subtypes[0]->kind == CORBA_tk_octet ||
 	tc->subtypes[0]->kind == CORBA_tk_char) {
-
 	len = SvCUR(sv);
     } else {
 	if (!SvROK(sv) || (SvTYPE(SvRV(sv)) != SVt_PVAV)) {
@@ -271,8 +276,6 @@ put_array (GIOPSendBuffer *buf, CORBA_TypeCode tc, SV *sv)
     return CORBA_TRUE;
 }
 
-/* FIXME: decroakify this
- */
 static char *
 porbit_exception_repoid (SV *exception)
 {
@@ -288,7 +291,7 @@ porbit_exception_repoid (SV *exception)
     SPAGAIN;
     
     if (count != 1)                     /* sanity check */
-        croak("exception->_repoid didn't return 1 argument");
+        return(NULL);
     
     result = g_strdup (POPp);
     
@@ -303,7 +306,7 @@ porbit_exception_repoid (SV *exception)
 static const char *status_subnames[] = { "COMPLETED_YES", "COMPLETED_NO", "COMPLETED_MAYBE" };
 
 static struct CORBA_TypeCode_struct status_typecode = {
-   {}, CORBA_tk_enum, NULL, NULL, 0, 3, status_subnames
+   { 0 }, CORBA_tk_enum, NULL, NULL, 0, 3, status_subnames
 };
 
 static const char *sysex_subnames[] = { "-minor", "-status" };
@@ -311,7 +314,7 @@ static const char *sysex_subnames[] = { "-minor", "-status" };
 static CORBA_TypeCode sysex_subtypes[] = { (CORBA_TypeCode)TC_CORBA_ulong, &status_typecode };
 
 static struct CORBA_TypeCode_struct sysex_typecode = {
-    {}, CORBA_tk_except, NULL, NULL, 0, 2, sysex_subnames, sysex_subtypes
+    { 0 }, CORBA_tk_except, NULL, NULL, 0, 2, sysex_subnames, sysex_subtypes
 };
 
 SV *
@@ -351,14 +354,13 @@ porbit_put_exception (GIOPSendBuffer *buf, CORBA_TypeCode tc, SV *sv,
 
 	repoid = porbit_exception_repoid (sv);
 	if (!repoid) {
-	    warn ("Cannot get repository ID for exception");
+	    warn ("Cannot get repository ID for CORBA exception");
 	    return porbit_system_except ("IDL:omg.org/CORBA/INTERNAL:1.0",
 					 0, CORBA_COMPLETED_MAYBE);
 	}
 	
     } else {
-	warn ("Exception thrown must derive from CORBA::UserException or\n"
-	      "CORBA::SystemException.");
+	warn ("Thrown CORBA exception must derive from CORBA::UserException or CORBA::SystemException");
 	
 	return porbit_system_except ("IDL:omg.org/CORBA/UNKNOWN:1.0",
 				     0, CORBA_COMPLETED_MAYBE);
@@ -372,7 +374,7 @@ porbit_put_exception (GIOPSendBuffer *buf, CORBA_TypeCode tc, SV *sv,
     
     if (tc->sub_parts != 0) {
 	if (!SvROK(sv) || (SvTYPE(SvRV(sv)) != SVt_PVHV)) {
-	    warn ("Exception must be hash reference");
+	    warn ("CORBA exception must be hash reference");
 	    return porbit_system_except ("IDL:omg.org/CORBA/MARSHAL:1.0",
 					 0, CORBA_COMPLETED_MAYBE);
 	}
@@ -381,13 +383,12 @@ porbit_put_exception (GIOPSendBuffer *buf, CORBA_TypeCode tc, SV *sv,
 	
 	for (i = 0; i < tc->sub_parts; i++) {
 	    SV **valp = hv_fetch (hv, (char *)tc->subnames[i], strlen(tc->subnames[i]), 0);
-	    if (!valp) {
-		warn ("Missing exception member '%s'", tc->subnames[i]);
-		return porbit_system_except ("IDL:omg.org/CORBA/MARSHAL:1.0",
-					     0, CORBA_COMPLETED_MAYBE);
-	    }
-	    
-	    if (!porbit_put_sv (buf, tc->subtypes[i], *valp))
+
+	    if (!valp && PL_dowarn)
+		warn ("Uninitialized CORBA exception member '%s'", tc->subnames[i]);
+
+	    if (!porbit_put_sv (buf, tc->subtypes[i],
+				valp ? *valp : &PL_sv_undef))
 		return porbit_system_except ("IDL:omg.org/CORBA/MARSHAL:1.0",
 					     0, CORBA_COMPLETED_MAYBE);
 	}
@@ -398,7 +399,7 @@ porbit_put_exception (GIOPSendBuffer *buf, CORBA_TypeCode tc, SV *sv,
 
 /* This will never get used, but we supply it just in case
  */
-CORBA_boolean
+static CORBA_boolean
 put_except (GIOPSendBuffer *buf, CORBA_TypeCode tc, SV *sv)
 {
     SV *error_sv = porbit_put_exception (buf, tc, sv, NULL);
@@ -414,28 +415,18 @@ static CORBA_boolean
 put_objref (GIOPSendBuffer *buf, CORBA_TypeCode tc, SV *sv)
 {
     CORBA_Object obj;
-    PORBitIfaceInfo *info = porbit_find_interface_description (tc->repo_id);
 
-    if (!info)
-	croak ("Attempt to marshall unknown object type");
-    
     if (!SvOK(sv))
 	obj = CORBA_OBJECT_NIL;
     else {
-	/* FIXME: This check isn't right at all if the object
-	 * is of an unknown type. (Or if the type we have
-	 * for the object is not the most derived type.)
-	 * We should call the server side ISA and then
-	 * downcast in this case?
-	 */
-	if (!sv_derived_from (sv, info->pkg)) {
-	    warn ("Value is not a %s", info->pkg);
+	if (!sv_derived_from(sv, "CORBA::Object")) {
+	    warn("not an object reference");
 	    return CORBA_FALSE;
 	}
 
-	obj = (CORBA_Object)SvIV((SV*)SvRV(sv));
+	obj = (CORBA_Object)SvIV((SV *)SvRV(sv));
     }
-    
+
     ORBit_marshal_object (buf, obj);
     return CORBA_TRUE;
 }
@@ -444,13 +435,14 @@ static CORBA_boolean
 put_union (GIOPSendBuffer *buf, CORBA_TypeCode tc, SV *sv)
 {
     SV *discriminator;
+    SV **valp;
     AV *av;
     CORBA_long arm;
     
     if (!SvROK(sv) || 
 	(SvTYPE(SvRV(sv)) != SVt_PVAV) ||
 	(av_len((AV *)SvRV(sv)) != 1)) {
-	warn("Union must be array reference of length 2");
+	warn("union must be array reference of length 2");
 	return CORBA_FALSE;
     }
 
@@ -462,7 +454,7 @@ put_union (GIOPSendBuffer *buf, CORBA_TypeCode tc, SV *sv)
     
     arm = porbit_union_find_arm (tc, discriminator);
     if (arm < 0) {
-	warn("discrimator branch does not match any arm, and no default arm");
+	warn("union discriminator branch does not match any arm, and no default arm");
 	return CORBA_FALSE;
     }
 
@@ -476,11 +468,18 @@ put_any (GIOPSendBuffer *buf, CORBA_TypeCode tc, SV *sv)
     SV *tc_sv;
     CORBA_TypeCode output_tc;
     
+    if (sv == &PL_sv_undef) {
+	if (PL_dowarn)
+	    warn ("Uninitialized CORBA::Any");
+	output_tc = porbit_find_typecode ("IDL:CORBA/Null:1.0");
+	ORBit_encode_CORBA_TypeCode (output_tc, buf);
+	return CORBA_TRUE;
+    }
 
     if (!SvROK(sv) || 
 	(SvTYPE(SvRV(sv)) != SVt_PVAV) ||
 	(av_len((AV *)SvRV(sv)) != 1)) {
-	warn("Any must be array reference of length 2");
+	warn ("CORBA::Any must be array reference of length 2");
 	return CORBA_FALSE;
     }
 
@@ -509,16 +508,15 @@ put_string (GIOPSendBuffer *buf, CORBA_TypeCode tc, SV *sv)
 {
     dTHR;
     char null = '\0';
-    CORBA_unsigned_long len;
-    char *str = SvPV(sv, PL_na);
+    STRLEN len;
+    char *str = SvPV(sv, len);
     
-    len = SvCUR(sv);
     if (tc->length != 0 && len > tc->length) {
 	warn("string too long");
 	return CORBA_FALSE;
     }
     if (strlen (str) != len) {
-	warn("strings may not included embedded nulls");
+	warn("strings may not include embedded nulls");
 	return CORBA_FALSE;
     }
 

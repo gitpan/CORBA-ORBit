@@ -19,7 +19,7 @@ struct _PORBitServant {
  */
 struct _PORBitInstVars
 {
-    U32 magic;	                // 0x18981972 
+    U32 magic;	                /* 0x18981972 */
     PortableServer_Servant servant;
 };
 
@@ -44,8 +44,14 @@ void porbit_servant_unref (PortableServer_Servant servant);
 
 PORBitServant    *porbit_servant_create   (SV                *perlobj,
 					   CORBA_Environment *ev);
-void              porbit_servant_destroy  (PORBitServant      *servant,
-					   CORBA_Environment  *ev);
+void              porbit_servant_destroy  (PORBitServant     *servant,
+					   CORBA_Environment *ev);
+
+/* Check if the CORBA interface a server implements, derives
+ * from the given repository ID
+ */
+gboolean           porbit_servant_is_a    (SV                *perlobj,
+					   const char        *repo_id);
 
 /* Convert between SV * and PortableServer_ObjectId
  */

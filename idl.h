@@ -3,6 +3,8 @@
 
 #include <orb/orbit.h>
 
-CORBA_boolean porbit_parse_idl_file (const char *file);
+CORBA_boolean porbit_parse_idl_file (const char *file, 
+				     const char *includes,
+				     const char *caller);
 
 #endif /* __PORBIT_IDL_H__ */

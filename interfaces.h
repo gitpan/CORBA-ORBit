@@ -47,6 +47,14 @@ CORBA_TypeCode porbit_find_typecode (const char *id);
  */
 void      porbit_store_typecode  (const char *repoid, CORBA_TypeCode tc);
 
+/* Remove a TypeCode object for the given repoid
+ */
+void      porbit_remove_typecode  (const char *repoid);
+
+/* Initialize interface descriptions for the standard types
+ */
+void porbit_init_interfaces (void);
+
 /* Initialize typecodes for the standard types
  */
 void      porbit_init_typecodes  (void);

@@ -11,6 +11,11 @@ typedef struct {
     char opname[1];
 } OpNameData;
 
+#define IS_ONEWAY(desc,index)  \
+ (((index) >= PORBIT_OPERATION_BASE && (index) < PORBIT_GETTER_BASE) &&  \
+   (desc)->operations._buffer[(index)-PORBIT_OPERATION_BASE].mode == CORBA_OP_ONEWAY)
+
+
 static GPtrArray *
 do_marshal (CV *cv, I32 ax, I32 items,
 	    CORBA_InterfaceDef_FullInterfaceDescription *desc, I32 index,
@@ -44,7 +49,8 @@ do_marshal (CV *cv, I32 ax, I32 items,
     operation_vec.iov_len = sizeof(CORBA_unsigned_long) + operation_name_data->len;
     
     send_buffer =
-	giop_send_request_buffer_use(connection, NULL, request_id, CORBA_TRUE,
+	giop_send_request_buffer_use(connection, NULL, request_id,
+				     !IS_ONEWAY(desc,index),
 				     &(obj->active_profile->object_key_vec),
 				     &operation_vec, &ORBit_default_principal_iovec);
     
@@ -152,7 +158,9 @@ static GIOPConnection *
 do_demarshal (CV *cv, I32 ax, I32 items,
 	      CORBA_InterfaceDef_FullInterfaceDescription *desc, I32 index, 
 	      GPtrArray *return_types,
-	      CORBA_Object obj, GIOPConnection *connection, GIOP_unsigned_long request_id)
+	      guint *return_count,
+	      CORBA_Object obj, GIOPConnection *connection,
+	      GIOP_unsigned_long request_id)
 {
     GIOPRecvBuffer *recv_buffer;
     SV *error_sv = NULL;
@@ -236,11 +244,11 @@ do_demarshal (CV *cv, I32 ax, I32 items,
 
 	/* Now write out return value and OUT parameters to stack
 	 */
+	st_index = 0;
 	ret_index = 0;
 	if (opr->result->kind != CORBA_tk_void) {
-	    /* FIXME, do the right thing in array and scalar contexts
-	     */
-	    ST(0) = sv_2mortal(results[0]);
+	    ST(st_index) = sv_2mortal(results[0]);
+	    st_index++;
 	    ret_index++;
 	}
 
@@ -252,11 +260,14 @@ do_demarshal (CV *cv, I32 ax, I32 items,
 		ret_index++;
 		break;
 	    case CORBA_PARAM_OUT:
-		ST(ret_index) = sv_2mortal (results[ret_index]);
+		ST(st_index) = sv_2mortal (results[ret_index]);
+		st_index++;
 		ret_index++;
 		break;
 	    }
 	}
+
+	*return_count = st_index;
     } else if (index >= PORBIT_GETTER_BASE && index < PORBIT_SETTER_BASE) {
 	ST(0) = sv_2mortal(results[0]);
     }
@@ -299,13 +310,13 @@ XS(_porbit_callStub)
     
     repoidp = hv_fetch(CvSTASH(cv), PORBIT_REPOID_KEY, strlen(PORBIT_REPOID_KEY), 0);
     if (!repoidp)
-	croak("_pmico_callStub called with bad package (no %s)",PORBIT_REPOID_KEY);
+	croak("_porbit_callStub called with bad package (no %s)",PORBIT_REPOID_KEY);
     
-    repoid = SvPV(GvSV(*repoidp), PL_na);
+    repoid = SvPV_nolen(GvSV(*repoidp));
     
     info = porbit_find_interface_description (repoid);
     if (!info)
-	croak("_pmico_callStub called on undefined interface");
+	croak("_porbit_callStub called on undefined interface");
 
     /* Get the discriminator
      */
@@ -313,6 +324,11 @@ XS(_porbit_callStub)
 	croak("method must have object as first argument");
 
     obj = porbit_sv_to_objref(ST(0)); /* may croak */
+
+    if (!obj) {
+	croak("Can't call CORBA method on an undefined value");
+    }
+    
     connection = ORBit_object_get_connection(obj);
 
  retry_request:
@@ -330,14 +346,14 @@ XS(_porbit_callStub)
     if (PL_stack_max - &ST(0) < return_count)
        stack_grow (PL_stack_sp, &ST(0), return_count);
 
-    if ((index >= PORBIT_OPERATION_BASE && index < PORBIT_GETTER_BASE) &&
-	info->desc->operations._buffer[index-PORBIT_OPERATION_BASE].mode == CORBA_OP_ONEWAY) {
+    if (IS_ONEWAY (info->desc, index)) {
 	if (return_count != 0) {
-	    warn ("Oneway operation has output parameters or a return value!\n");
+	    warn ("ONEWAY operation has output parameters or a return value!");
 	}
     } else {
 	new_connection = do_demarshal (cv, ax, items,
-				       info->desc, index, return_types,
+				       info->desc, index,
+				       return_types, &return_count,
 				       obj, connection, request_id);
 
 	if (new_connection) {
@@ -346,5 +362,12 @@ XS(_porbit_callStub)
 	}
     }
 
-    XSRETURN(return_count);
+    switch (GIMME_V) {
+    case G_ARRAY:
+      XSRETURN(return_count);
+    case G_SCALAR:
+      XSRETURN(1);
+    case G_VOID:
+      XSRETURN_EMPTY;
+    }
 }

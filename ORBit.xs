@@ -1,3 +1,5 @@
+/* -*- mode: C; c-file-style: "bsd" -*- */
+
 #include <orb/orbit.h>
 #include "interfaces.h"
 #include "errors.h"
@@ -13,6 +15,7 @@ typedef CORBA_ORB              CORBA__ORB;
 typedef CORBA_Object           CORBA__Object;
 typedef CORBA_TypeCode         CORBA__TypeCode;
 typedef ORBit_RootObject       CORBA__ORBit__RootObject;
+typedef PORBitSource *         CORBA__ORBit__Source;
 
 typedef CORBA_long_long     CORBA__LongLong;
 typedef CORBA_unsigned_long_long    CORBA__ULongLong;
@@ -40,6 +43,158 @@ typedef PortableServer_Servant        PortableServer__ServantBase;
        CHECK_EXCEPTION(ev)                    \
    } G_STMT_END
 
+#define N_ELEMENTS(arr) (sizeof(arr) / sizeof((arr)[0]))
+
+/* Constants that we define in CORBA::ORBit namespace
+ */
+#define ELEMENT(foo) { #foo, G_ ## foo }
+
+static struct {
+    const char *name;
+    int value;
+} corba_orbit_constants[] = {
+    ELEMENT (IO_IN),
+    ELEMENT (IO_OUT),
+    ELEMENT (IO_PRI),
+    ELEMENT (IO_ERR),
+    ELEMENT (IO_HUP),
+    ELEMENT (IO_NVAL),
+    ELEMENT (PRIORITY_HIGH),
+    ELEMENT (PRIORITY_DEFAULT),
+    ELEMENT (PRIORITY_HIGH_IDLE),
+    ELEMENT (PRIORITY_DEFAULT_IDLE),
+    ELEMENT (PRIORITY_LOW)
+};
+
+#undef ELEMENT
+
+static AV *
+collect_source_args (SV *sv)
+{
+    int i;
+    AV *result = newAV();
+
+    if (SvRV(sv) && (SvTYPE(SvRV(sv)) == SVt_PVAV)) {
+        AV *av = (AV*)SvRV(sv);
+        for (i = 0; i <= av_len(av); i++)
+	    av_push(result, newSVsv(*av_fetch(av, i, 0)));
+    } else {
+	av_push (result, newSVsv(sv));
+    }
+
+    return result;
+}
+
+static gboolean
+timeout_handler (gpointer data) 
+{
+    PORBitSource *source;
+    SV *handler;
+    gboolean result;
+    int i, count;
+    dSP;
+
+    source = data;
+
+    /* We keep a reference on source->args while invoking the callback
+     * to handle the case where we source->destroy() is called
+     * during invokation
+     */
+    SvREFCNT_inc ((SV *) source->args);
+
+    handler = *av_fetch(source->args, 0, 0);
+
+    ENTER;
+    SAVETMPS;
+         
+    PUSHMARK(sp);
+    for (i=1;i<=av_len(source->args);i++)
+	XPUSHs(sv_2mortal(newSVsv(*av_fetch(source->args, i, 0))));
+    PUTBACK;
+
+    count = perl_call_sv(handler, G_SCALAR);
+        
+    SPAGAIN;
+
+    if (count != 1) {
+	warn ("handler returned %d items", count);
+	while (count--)
+	    (void)POPs;
+	
+	return FALSE;
+    }
+
+    result = SvTRUE(*sp);
+    POPs;
+
+    PUTBACK;
+        
+    FREETMPS;
+    LEAVE;
+
+    SvREFCNT_dec ((SV *) source->args);
+
+    return result;
+}
+
+static gboolean
+io_watch_handler (GIOChannel   *channel,
+		  GIOCondition  condition,
+		  gpointer      data)
+{
+    PORBitSource *source;
+    SV *handler;
+    gboolean result;
+    int i, count;
+    dSP;
+
+    source = data;
+
+    /* We keep a reference on source->args while invoking the callback
+     * to handle the case where we source->destroy() is called
+     * during invokation
+     */
+    SvREFCNT_inc ((SV *) source->args);
+
+    handler = *av_fetch(source->args, 0, 0);
+
+    ENTER;
+    SAVETMPS;
+         
+    PUSHMARK(sp);
+    for (i=1;i<=av_len(source->args);i++)
+	XPUSHs(sv_2mortal(newSVsv(*av_fetch(source->args, i, 0))));
+    PUTBACK;
+    
+    XPUSHs(sv_2mortal(newSViv(g_io_channel_unix_get_fd (channel))));
+    XPUSHs(sv_2mortal(newSViv(condition)));
+
+    count = perl_call_sv(handler, G_SCALAR);
+        
+    SPAGAIN;
+
+    if (count != 1) {
+	warn ("handler returned %d items", count);
+	while (count--)
+	    (void)POPs;
+	
+	return FALSE;
+    }
+
+    result = SvTRUE(*sp);
+    (void)POPs;
+
+    PUTBACK;
+        
+    FREETMPS;
+    LEAVE;
+
+    SvREFCNT_dec ((SV *) source->args);
+
+    return result;
+}
+
+
 /*** GLOBALS ****/
 CORBA_ORB porbit_orb;
 
@@ -48,7 +203,7 @@ CORBA_ORB porbit_orb;
  */
 static GSList *main_loops;
 
-CORBA_Policy
+static CORBA_Policy
 make_policy (PortableServer_POA poa, char *key, char *value, CORBA_Environment *ev)
 {
   switch (key[0])
@@ -206,6 +361,27 @@ _repoid (self)
     RETVAL
 
 void
+_narrow (self, repo_id)
+    CORBA::Object self;
+    char * repo_id;
+    CODE:
+    g_free(self->object_id);
+    self->object_id = g_strdup(repo_id);
+
+SV *
+_is_a (self, repoid)
+    CORBA::Object self;
+    char * repoid;
+    CODE:
+    {
+	DEFINE_EXCEPTION (ev);
+	RETVAL = CORBA_Object_is_a (self, repoid, &ev) ? &PL_sv_yes : &PL_sv_no;
+	CHECK_EXCEPTION (ev);
+    }
+    OUTPUT:
+    RETVAL
+
+void
 DESTROY (self)
     CORBA::Object self
     CODE:
@@ -223,6 +399,31 @@ object_to_string (self, object)
         DEFINE_EXCEPTION (ev);
 	RETVAL = CORBA_ORB_object_to_string (self, object, &ev);
 	CHECK_EXCEPTION (ev);
+    }
+    OUTPUT:
+    RETVAL
+
+SV *
+list_initial_services (self)
+    CORBA::ORB self
+    CODE:
+    {
+        CORBA_ORB_ObjectIdList *services;
+	AV *av;
+        int i, nservices;
+
+        DEFINE_EXCEPTION (ev);
+        services = CORBA_ORB_list_initial_services (self, &ev);
+        CHECK_EXCEPTION (ev);
+
+	av = newAV();
+	av_extend(av, services->_length);
+	RETVAL = newRV_noinc((SV *)av);
+
+	for (i = 0; i < services->_length; i++)
+            av_store(av, i, newSVpv(services->_buffer[i],0));
+
+	CORBA_free(services);
     }
     OUTPUT:
     RETVAL
@@ -270,11 +471,13 @@ string_to_object (self, str)
     RETVAL
 
 void
-load_idl_file (self, filename)
+load_idl_file (self, filename, includes, caller)
     CORBA::ORB self
     char *     filename
+    char *     includes
+    char *     caller
     CODE:
-    porbit_parse_idl_file (filename);
+    porbit_parse_idl_file (filename, includes, caller);
 
 void
 preload (self, id)
@@ -336,6 +539,155 @@ shutdown (self, wait_for_completion)
     } else {
         croak("CORBA::shutdown: No main loop active!");
     }
+
+CORBA::ORBit::Source
+add_timeout (self, ...)
+    CORBA::ORB self
+    CODE:
+    {
+	int i;
+	AV *args = NULL;
+	gint interval = -1;
+	gint priority = G_PRIORITY_DEFAULT;
+	
+	if (items % 2 != 1)
+	    croak ("CORBA::ORBit::add_timeout: the number of args must be event");
+	
+	for (i = 1; i < items; i++) {
+	    const char *name = SvPV(ST(i), PL_na);
+	    gboolean found = FALSE;
+	    
+	    switch (name[0]) {
+	    case 'c':
+		if (strcmp (name, "cb") == 0) {
+		    found = TRUE;
+		    i++;
+		    args = collect_source_args (ST(i));
+		}
+		break;
+	    case 'p':
+		if (strcmp (name, "priority") == 0) {
+		    found = TRUE;
+		    i++;
+		    priority = SvIV (ST(i));
+		}
+		break;
+	    case 't':
+		if (strcmp (name, "timeout") == 0) {
+		    found = TRUE;
+		    i++;
+		    interval = SvIV (ST(i));
+		}
+		break;
+	    }
+
+	    if (!found) {
+		if (args)
+		    av_undef (args);
+		croak ("CORBA::ORBit::add_timeout: unknown key '%s'", name);
+	    }
+	}
+
+	if (!args) {
+	    croak ("CORBA::ORBit::add_timeout: a callback must be provided");
+	}
+	
+	if (interval < 0) {
+	    av_undef (args);
+	    croak ("CORBA::ORBit::add_timeout: a non-negative timeout must be provided");
+	}
+	
+	RETVAL = porbit_source_new ();
+	RETVAL->args = args;
+	RETVAL->id = g_timeout_add_full (priority, interval, timeout_handler,
+					 RETVAL, (GDestroyNotify)porbit_source_destroyed);
+	porbit_source_ref (RETVAL);
+    }
+    OUTPUT:
+    RETVAL
+    
+CORBA::ORBit::Source
+add_io_watch (self, ...)
+    CORBA::ORB self
+    CODE:
+    {
+	int i;
+	AV *args = NULL;
+	gint fd = -1;
+	gint condition = 0;
+	gint priority = G_PRIORITY_DEFAULT;
+	GIOChannel *channel;
+	
+	if (items % 2 != 1) {
+	    croak ("CORBA::ORBit::add_io_watch: the number of args must be event");
+	}
+	
+	for (i = 1; i < items; i++) {
+	    const char *name = SvPV(ST(i), PL_na);
+	    gboolean found = FALSE;
+	    
+	    switch (name[0]) {
+	    case 'c':
+		if (strcmp (name, "cb") == 0) {
+		    found = TRUE;
+		    i++;
+		    args = collect_source_args (ST(i));
+		} else if (strcmp (name, "condition") == 0) {
+		    found = TRUE;
+		    i++;
+		    condition = SvUV (ST(i));
+		}
+		break;
+	    case 'f':
+		if (strcmp (name, "fd") == 0) {
+		    found = TRUE;
+		    i++;
+		    fd = SvIV (ST(i));
+		}
+		break;
+	    case 'p':
+		if (strcmp (name, "priority") == 0) {
+		    found = TRUE;
+		    i++;
+		    priority = SvIV (ST(i));
+		}
+		break;
+	    }
+
+	    if (!found) {
+		if (args)
+		    av_undef (args);
+		croak ("CORBA::ORBit::add_io_watch: unknown key '%s'", name);
+	    }
+	}
+
+	if (!args) {
+	    croak ("CORBA::ORBit::add_io_watch: a callback must be provided");
+	}
+	
+	if (fd < 0) {
+	    av_undef (args);
+	    croak ("CORBA::ORBit::io_watch: a non-negative fd must be provided");
+	}
+
+	if (condition == 0) {
+	    av_undef (args);
+	    croak ("CORBA::ORBit::io_watch: a non-negative fd must be provided");
+	}
+
+	RETVAL = porbit_source_new ();
+	RETVAL->args = args;
+
+	channel = g_io_channel_unix_new (fd);
+	RETVAL->id = g_io_add_watch_full (channel, priority, condition,
+					  io_watch_handler,
+					  RETVAL, (GDestroyNotify)porbit_source_destroyed);
+	g_io_channel_unref (channel);
+
+	porbit_source_ref (RETVAL);
+    }
+    OUTPUT:
+    RETVAL
     
 MODULE = CORBA::ORBit            PACKAGE = CORBA::LongLong
 
@@ -343,7 +695,7 @@ CORBA::LongLong
 new (Class, str)
     char *str
     CODE:
-    RETVAL = longlong_from_string (str);
+    RETVAL = porbit_longlong_from_string (str);
     OUTPUT:
     RETVAL
 
@@ -352,7 +704,7 @@ stringify (self, other=0, reverse=&PL_sv_undef)
     CORBA::LongLong self
     CODE:
     {
-	char *result = longlong_to_string (self);
+	char *result = porbit_longlong_to_string (self);
         RETVAL = newSVpv (result, 0);
 	Safefree (result);
     }
@@ -451,7 +803,7 @@ CORBA::ULongLong
 new (Class, str)
     char *str
     CODE:
-    RETVAL = ulonglong_from_string (str);
+    RETVAL = porbit_ulonglong_from_string (str);
     OUTPUT:
     RETVAL
 
@@ -460,7 +812,7 @@ stringify (self, other=0, reverse=&PL_sv_undef)
     CORBA::ULongLong self
     CODE:
     {
-	char *result = ulonglong_to_string (self);
+	char *result = porbit_ulonglong_to_string (self);
         RETVAL = newSVpv (result, 0);
 	Safefree (result);
     }
@@ -543,7 +895,7 @@ CORBA::LongDouble
 new (Class, str)
     char *str
     CODE:
-    RETVAL = longdouble_from_string (str);
+    RETVAL = porbit_longdouble_from_string (str);
     OUTPUT:
     RETVAL
 
@@ -552,7 +904,7 @@ stringify (self, other=0, reverse=&PL_sv_undef)
     CORBA::LongDouble self
     CODE:
     {
-	char *result = longdouble_to_string (self);
+	char *result = porbit_longdouble_to_string (self);
         RETVAL = newSVpv (result, 0);
 	Safefree (result);
     }
@@ -642,7 +994,6 @@ new (pkg, id)
     RETVAL = porbit_find_typecode (id);
     if (!RETVAL)
         croak ("Cannot find typecode for '%s'", id);
-    RETVAL = (CORBA_TypeCode)CORBA_Object_duplicate ((CORBA_Object)RETVAL, NULL);
     OUTPUT:
     RETVAL
     
@@ -719,6 +1070,22 @@ DESTROY (self)
     CORBA::ORBit::RootObject self
     CODE:
     CORBA_Object_release ((CORBA_Object)self, NULL);
+
+
+MODULE = CORBA::ORBit                    PACKAGE = CORBA::ORBit::Source
+
+void
+DESTROY (self)
+    CORBA::ORBit::Source self
+    CODE:
+    porbit_source_unref (self);
+
+void
+destroy (self)
+    CORBA::ORBit::Source self
+    CODE:
+    g_source_remove (self->id);
+
 
 MODULE = CORBA::ORBit                    PACKAGE = PortableServer::POA
 
@@ -870,7 +1237,7 @@ create_reference (self, intf)
     RETVAL
 
 CORBA::Object
-create_reference_object_with_id (self, perl_id, intf)
+create_reference_with_id (self, perl_id, intf)
     PortableServer::POA self
     SV *perl_id
     char *intf
@@ -965,7 +1332,7 @@ id_to_reference (self, perl_id)
     OUTPUT:
     RETVAL
 
-MODULE = CORBA::MICO            PACKAGE = PortableServer::POAManager
+MODULE = CORBA::ORBit            PACKAGE = PortableServer::POAManager
 
 void
 activate (self)
@@ -1012,8 +1379,27 @@ _porbit_servant (self)
     OUTPUT:
     RETVAL
 
+SV *
+_is_a (self, repoid)
+    SV *self
+    char *repoid;
+    CODE:
+    RETVAL = newSVsv(porbit_servant_is_a (self, repoid) ? &PL_sv_yes : &PL_sv_no);
+    OUTPUT:
+    RETVAL
+
 BOOT:
     porbit_init_exceptions();
+    porbit_init_interfaces();
     porbit_init_typecodes();
     porbit_set_use_gmain(1);
 
+    /* Define IO condition constants */
+    {
+	HV *stash = gv_stashpv ("CORBA::ORBit", TRUE);
+	int i;
+	for (i = 0; i < N_ELEMENTS (corba_orbit_constants); i++)
+	    newCONSTSUB (stash,
+			 (char *)corba_orbit_constants[i].name,
+			 newSViv((char *)corba_orbit_constants[i].value));
+    }

@@ -15,7 +15,7 @@ require Carp;
 
 @ISA = qw(DynaLoader);
 
-$VERSION = '0.4.3';
+$VERSION = '0.4.4';
 
 bootstrap CORBA::ORBit $VERSION;
 
@@ -30,8 +30,32 @@ bootstrap CORBA::ORBit $VERSION;
 
 my $IDL_PATH;
 
+sub load_idl {
+    my ($orb, $file, $caller) = @_;
+    
+    my $path = defined $IDL_PATH ? $IDL_PATH : "";
+    my $includes = join (" ", map { "-I ".$_ } split /:/,$path);
+    
+    if ($file =~ m@^/@) {
+	if (-e $file) {
+	    $orb->load_idl_file("$file", $includes, $caller);
+	    return 1;
+	}
+    } else {
+	foreach ((split /:/, $path), ".") {
+	    if (-e "$_/$file") {
+		$orb->load_idl_file("$_/$file", $includes, $caller);
+		return 1;
+	    }
+	}
+    }
+
+    0;
+};
+
 sub import {
     my $pkg = shift;
+    my $caller = caller;
 
     my %keys = @_;
 
@@ -59,34 +83,23 @@ sub import {
 
     file:
 	foreach my $file (@idls) {
-	    if ($file =~ m@^/@) {
-		if (-e $file) {
-		    $orb->load_idl_file("$file");
-		    next file;
-		}
-	    } else {
-		my $path = defined $IDL_PATH ? $IDL_PATH : "";
-		foreach ((split /:/, $path), ".") {
-		    if (-e "$_/$file") {
-			$orb->load_idl_file("$_/$file");
-			next file;
-		    }
-		}
-	    }
-	    Carp::croak("Cannot locate IDL file: '$file'");
+	    load_idl($orb, $file, $caller) or Carp::croak("Cannot load IDL file: '$file'");
 	}
     }
 }
 
 package CORBA::Any;
 
+$CORBA::Any::TC_null = CORBA::TypeCode->new('IDL:CORBA/Null:1.0');
+
 sub new {
     my ($pkg, $tc, $val) = @_;
 
-    if (ref($tc) ne 'CORBA::TypeCode') {
-	Carp::croak ('First argument to CORBA::Any::new must be a CORBA::TypeCode');
-    }
-    
+    $tc = $CORBA::Any::TC_null unless (defined($tc));
+    Carp::croak (
+	'First argument to CORBA::Any::new must be a CORBA::TypeCode')
+	    if (ref($tc) ne 'CORBA::TypeCode');
+
     return bless [ $tc, $val ];
 }
 
@@ -127,11 +140,11 @@ sub AUTOLOAD {
 	$newclass = CORBA::ORBit::load_interface ($iface);
     }
 
-    defined $newclass or croak "Can't get interface intformation";
+    defined $newclass or croak "Can't get interface information";
 
     my ($oldclass) = "$self" =~ /:*([^=]*)/;
     $oldclass ne $newclass or 
-	croak qq(Can\'t locate object method "$method" via package "$oldclass");
+	croak qq(Can't locate object method "$method" via package "$oldclass");
     
     bless $self, $newclass;
 

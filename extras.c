@@ -1,3 +1,5 @@
+/* -*- mode: C; c-file-style: "bsd" -*- */
+
 #include "extras.h"
 
 static CORBA_Principal porbit_cookie = { 0, 0, NULL, CORBA_FALSE };
@@ -90,3 +92,47 @@ porbit_set_check_cookies (gboolean set)
     ORBit_set_request_validation_handler (NULL);
 }
 
+PORBitSource *
+porbit_source_new (void)
+{
+  PORBitSource *source = g_new (PORBitSource, 1);
+
+  source->ref_count = 1;
+  source->id = 0;
+  source->args = NULL;
+
+  return source;
+}
+
+PORBitSource *
+porbit_source_ref (PORBitSource *source)
+{
+  source->ref_count++;
+
+  return source;
+}
+
+void 
+porbit_source_unref (PORBitSource *source)
+{
+  source->ref_count--;
+  
+  if (source->ref_count == 0) {
+      if (source->id) {
+	  warn ("0 refcount on an activate source!");
+	  source->ref_count++;
+      } else {
+	  g_free (source);
+      }
+  }
+}
+
+void
+porbit_source_destroyed (PORBitSource *source)
+{
+  source->id = 0;
+  SvREFCNT_dec ((SV *)source->args);
+  source->args = NULL;
+  
+  porbit_source_unref (source);
+}

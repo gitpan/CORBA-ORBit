@@ -4,6 +4,7 @@ CORBA_char *	            T_CORBACHAR
 CORBA::ORB	            T_PTROBJ
 CORBA::TypeCode	            T_PTROBJ
 CORBA::ORBit::RootObject    T_PTROBJ
+CORBA::ORBit::Source        T_PTROBJ
 PortableServer::POA         T_PTROBJ
 PortableServer::POAManager  T_PTROBJ
 PortableServer::ServantBase T_SERVANT
@@ -37,9 +38,8 @@ T_CORBACHAR
 	sv_setpv((SV*)$arg, $var);
 	CORBA_free ($var);
 T_LONGLONG
-	$arg = ll_from_longlong ($var);
+	$arg = porbit_ll_from_longlong ($var);
 T_ULONGLONG
-	$arg = ull_from_ulonglong ($var);
+	$arg = porbit_ull_from_ulonglong ($var);
 T_LONGDOUBLE
-	$arg = ld_from_longdouble ($var);
-
+	$arg = porbit_ld_from_longdouble ($var);

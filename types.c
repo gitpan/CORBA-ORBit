@@ -140,5 +140,3 @@ porbit_union_find_arm (CORBA_TypeCode tc, SV *discriminator)
 
     return (tc->default_index >= 0) ? tc->default_index : -1;
 }
-    
-

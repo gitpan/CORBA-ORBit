@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 
-use CORBA::ORBit idl => [ qw(Account.idl) ];
+use CORBA::ORBit idl_path => $IDL_PATH, idl => [ qw(Account.idl) ];
 
 my @servers;
 
@@ -124,6 +124,12 @@ sub add {
     $a+$b;
 }
 
+sub echo_object {
+    my ($self, $obj) = @_;
+
+    $obj;
+}
+
 # Possible alternative mapping
 #
 #sub prefs {
@@ -155,6 +161,9 @@ package main;
 use Error qw(:try);
 
 $orb = CORBA::ORB_init("orbit-local-orb");
+
+print "Initial services: ", join (" ", @{$orb->list_initial_services}), "\n";
+
 $poa = $orb->resolve_initial_references("RootPOA");
 
 # Create the main server object
@@ -165,10 +174,10 @@ push @servers, $servant;
 $id = $poa->activate_object ($servant);
 $ref = $orb->object_to_string ($poa->id_to_reference ($id));
 
-# The following causes a segmentation fault within ORBit, which
-# is incorrect. It should throw a InvalidPolicy exception, I think.
-# $servant = $poa->servant_to_reference ($servant);
-# $ref = $orb->object_to_string ($servant);
+# The following is simpler and works as of 0.5.7
+#
+#$objref = $poa->servant_to_reference ($servant);
+#$ref = $orb->object_to_string ($objref);
 
 open (OUT, ">account.ref");
 print OUT $ref;
@@ -180,6 +189,38 @@ $poa->_get_the_POAManager->activate;
 
 print "The daily maximum is: ", Account::DAILY_MAX, "\n";
 
-$orb->run ();
+my $a = 9;
+my $source;
+$source = $orb->add_timeout (timeout => 1000, 
+			     cb => [ sub { 
+					 $ra = shift; 
+					 $$ra--; print "Counting $$ra\n";
+					 if ($$ra == 1) {
+					     $source->destroy;
+					     undef $source;
+					 }
+					 $$ra; 
+				     }, \$a ]);
+
+sub sysecho 
+{
+    my ($file1, $file2) = @_;
+    my $buf;
+
+    $count = sysread ($file1, $buf, 1024);
+    print $file2 $buf;
+
+    if ($count == 0) {
+	print $file2 "EOF\n";
+    }
+    
+    $count;
+}
+
+$orb->add_io_watch (fd => fileno (STDIN),
+		    condition => CORBA::ORBit::IO_IN | CORBA::ORBit::IO_HUP,
+		    cb => sub { sysecho (\*STDIN, \*STDOUT); });
+
+$orb->run();
 
 exit (0);			# Never reached

@@ -22,6 +22,10 @@ close IOR;
 
 my $account = $orb->string_to_object($ior);
 
+if (!$account->_is_a ("IDL:Account/BaseAccount:1.0")) {
+    die ("Account isn't a BaseAccount!");
+}
+
 for (my $i=0;$i<0;$i++) {
     $account->deposit( 1 );
 }
@@ -63,9 +67,28 @@ print "As an any: favorite color is now ",
 print "As an any: nickname is now ",
           $account->get_pref_any('pt_nickname')->value,"\n";
 
-print "2 * 1,000,000,000,0000 pennies = ", 
-    $account->add ('1 000 000 000 000', '1 000 000 000 000'),
-    " pennies\n";
+#
+# Test LongLong marshalling
+#
+sub commify # I forget how to do this more efficiently and simply :-)
+{
+    my $str = shift;
+    $str =~ s/(\d)(?=(?:\d\d\d)+(?:$|\D))/$1,/g;
+    
+    $str;
+}
+
+my $amount =        '1000000000000';
+my $double_amount = '2000000000000';
+
+my $test_amount = $account->add ($amount, $amount);
+
+printf "2 * %s pennies = %s pennies\n", 
+    commify($amount), commify($test_amount);
+
+if ("$test_amount" ne "$double_amount") {
+    die "Incorrect result from addition call!\n";
+}
 
 print "Withdrawing \$100,000\n";
 try {
@@ -77,6 +100,7 @@ try {
 };
 
 my $counter = $account->counter();
+$counter = $account->echo_object ($counter);
 print join(" ", map { $counter->next } (1..10)), "\n";
 
 $counter->destroy();

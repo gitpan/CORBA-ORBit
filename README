@@ -1,4 +1,4 @@
-CORBA::ORBit 0.4.3
+CORBA::ORBit 0.4.4
 ==================
 
 CORBA::ORBit is a Perl binding for ORBit. It is based
@@ -37,11 +37,7 @@ of orbit.) Information about ORBit is available from:
 
 The latest version of ORBit is available from:
    
-   ftp://ftp.gnome.org/pub/GNOME/sources/ORBit/
-
-RPM's for redhat 6.0 and 6.1 are available from:
-
-   ftp://ftp.gnome.org/pub/GNOME/gnome-1.0.53/redhat/
+   ftp://ftp.gnome.org/pub/GNOME/stable/sources/ORBit/
 
 You'll also need Graham Barr's Error module - available
 from CPAN in the directory:
@@ -79,10 +75,8 @@ And then run the client program:
 You should see output that looks something like:
 
 ----------
-Using /home/otaylor/work/orbit-perl/blib
-Oops. I don't have that much money
-    (I need +99083.35 more)
-Balance is +916.65
+Using /home/otaylor/devel/orbit-perl/blib
+Balance is +1099.98
 Favorite color is chartreuse
 Lottery numbers are 1 2 3 4
 Nickname is Grumpy
@@ -95,8 +89,10 @@ Nickname is Grumpy
 Favorite color is now chartreuse
 As an any: favorite color is now chartreuse
 As an any: nickname is now Grumpy
-2 * 1,000,000,000,0000 pennies = 20000000000000 pennies
+2 * 1,000,000,000,000 pennies = 2,000,000,000,000 pennies
 Withdrawing $100,000
+Oops. I don't have that much money
+    (I need +98900.02 more)
 1 2 3 4 5 6 7 8 9 10
 Caught Exception: CORBA::OBJECT_NOT_EXIST ('IDL:omg.org/CORBA/OBJECT_NOT_EXIST:1.0')
     (0, COMPLETED_NO)

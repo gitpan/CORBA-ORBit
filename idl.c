@@ -357,8 +357,10 @@ get_struct_typecode (IDL_tree tree)
     result->repo_id = g_strdup (repoid);
     result->name = g_strdup (IDL_IDENT(ident).str); 
 
-    /* Count the number of members */
+    porbit_store_typecode (repoid, result);
+
     result->sub_parts = 0;
+    /* Count the number of members */
     tmp_list1 = member_list;
     while (tmp_list1) {
 	IDL_tree member = IDL_LIST(tmp_list1).data;
@@ -419,11 +421,10 @@ get_union_typecode (IDL_tree tree)
     IDL_tree ident = IDL_TYPE_UNION(tree).ident;
     IDL_tree switch_type_spec = IDL_TYPE_UNION(tree).switch_type_spec;
     IDL_tree switch_body = IDL_TYPE_UNION(tree).switch_body;
-    CORBA_unsigned_long i;
-
     IDL_tree tmp_list1, tmp_list2;
     char *repoid;
-    CORBA_TypeCode result;
+    CORBA_TypeCode tmp_result, result;
+    int i;
 
     repoid = IDL_IDENT_REPO_ID (ident);
 
@@ -435,7 +436,11 @@ get_union_typecode (IDL_tree tree)
     result->kind = CORBA_tk_union;
     result->repo_id = g_strdup (repoid);
     result->name = g_strdup (IDL_IDENT(ident).str); 
+    result->default_index = -1;
+    result->discriminator = get_typecode (switch_type_spec);
 
+    porbit_store_typecode (repoid, result);
+    
     /* When building a union, if the default case has another label,
      * we don't add a separate arm for it
      *
@@ -468,8 +473,6 @@ get_union_typecode (IDL_tree tree)
     result->subnames = g_new(const gchar *, result->sub_parts);
     result->subtypes = g_new(CORBA_TypeCode, result->sub_parts);
     result->sublabels = g_new(CORBA_any, result->sub_parts);
-    result->default_index = -1;
-    result->discriminator = get_typecode (switch_type_spec);
 
     i = 0;
     tmp_list1 = switch_body;
@@ -560,8 +563,6 @@ get_union_typecode (IDL_tree tree)
 	tmp_list1 = IDL_LIST(tmp_list1).next;
     }
     
-    porbit_store_typecode (repoid, result);
-    
     return result;
 }
 
@@ -580,7 +581,7 @@ get_wstring_typecode (IDL_tree tree)
     return result;
 }
 
-CORBA_TypeCode
+static CORBA_TypeCode
 get_ident_typecode (IDL_tree tree)
 {
     IDL_tree parent;
@@ -641,7 +642,7 @@ get_ident_typecode (IDL_tree tree)
     return NULL;
 }
 
-CORBA_TypeCode
+static CORBA_TypeCode
 get_typecode (IDL_tree tree)
 {
     switch (IDL_NODE_TYPE (tree)) {
@@ -806,7 +807,7 @@ do_operation(IDL_tree tree)
 }
 
 static void
-do_const(IDL_tree tree)
+do_const(IDL_tree tree, const char *caller)
 {
     CORBA_TypeCode type = get_typecode (IDL_CONST_DCL(tree).const_type);
 
@@ -817,17 +818,20 @@ do_const(IDL_tree tree)
     char *pkgname = NULL;
     SV *sv;
 
-    switch (IDL_NODE_TYPE (container)) {
-    case IDLN_INTERFACE:
-	pkgname = IDL_ns_ident_to_qstring (IDL_INTERFACE (container).ident, "::", 0);
-	break;
-    case IDLN_MODULE:
-	pkgname = IDL_ns_ident_to_qstring (IDL_MODULE (container).ident, "::", 0);
-	break;
-    default:
-	g_warning ("Constant isn't contained within an interface or module!\n");
-	goto error;
-    }
+    if (!container)
+	pkgname = g_strdup(caller);
+    else
+	switch (IDL_NODE_TYPE (container)) {
+	case IDLN_INTERFACE:
+	    pkgname = IDL_ns_ident_to_qstring (IDL_INTERFACE (container).ident, "::", 0);
+	    break;
+	case IDLN_MODULE:
+	    pkgname = IDL_ns_ident_to_qstring (IDL_MODULE (container).ident, "::", 0);
+	    break;
+	default:
+	    g_warning ("Constant isn't contained within an interface or module");
+	    goto error;
+	}
     
     switch (type->kind) {
 	/* FIXME: check ranges */
@@ -857,22 +861,22 @@ do_const(IDL_tree tree)
      *        long constants as far as I can tell.
      */
     case CORBA_tk_longdouble:
-	sv = ld_from_longdouble ((CORBA_long_double)IDL_FLOAT(value).value);
+	sv = porbit_ld_from_longdouble ((CORBA_long_double)IDL_FLOAT(value).value);
 	break;
     case CORBA_tk_longlong:
-	sv = ll_from_longlong ((CORBA_long_long)IDL_INTEGER(value).value);
+	sv = porbit_ll_from_longlong ((CORBA_long_long)IDL_INTEGER(value).value);
 	break;
     case CORBA_tk_ulonglong:
-	sv = ull_from_ulonglong ((CORBA_unsigned_long_long)IDL_INTEGER(value).value);
+	sv = porbit_ull_from_ulonglong ((CORBA_unsigned_long_long)IDL_INTEGER(value).value);
 	break;
 
     case CORBA_tk_wchar:
     case CORBA_tk_fixed:
     case CORBA_tk_wstring:
-	g_warning ("Unsupported constant type: %d\n", type->kind);
+	g_warning ("Unsupported constant type: %d", type->kind);
 	goto error;
     default:
-	g_warning ("Impossible constant type: %d!\n", type->kind);
+	g_warning ("Impossible constant type: %d!", type->kind);
 	goto error;
     }
 
@@ -920,8 +924,9 @@ typedef struct {
 } InterfaceData;
 
 static gboolean
-tree_pre_func (IDL_tree_func_data *tfd, gpointer user_data)
+tree_pre_func (IDL_tree_func_data *tfd, gpointer caller_)
 {
+    const char *caller = (const char *)caller_;
     InterfaceData *idata;
     
     switch (IDL_NODE_TYPE (tfd->tree)) {
@@ -953,7 +958,7 @@ tree_pre_func (IDL_tree_func_data *tfd, gpointer user_data)
 	return FALSE;
 	
     case IDLN_CONST_DCL:
-	do_const (tfd->tree);
+	do_const (tfd->tree, caller);
 	return FALSE;
     case IDLN_EXCEPT_DCL:
 	do_except (tfd->tree);
@@ -1013,16 +1018,24 @@ define_interface (IDL_tree tree, InterfaceData *idata)
 	}
 	g_slist_free (idata->attributes);
 
-	desc->base_interfaces._length = IDL_list_length (inheritance_spec);
-	desc->base_interfaces._buffer = 
-	    CORBA_sequence_CORBA_RepositoryId_allocbuf (desc->base_interfaces._length);
-	desc->base_interfaces._release = TRUE;
+	if (IDL_list_length (inheritance_spec)) {
+	    desc->base_interfaces._length = IDL_list_length (inheritance_spec);
+	    desc->base_interfaces._buffer = 
+		CORBA_sequence_CORBA_RepositoryId_allocbuf (desc->base_interfaces._length);
+	    desc->base_interfaces._release = TRUE;
 
-	for (i=0; i<desc->base_interfaces._length; i++) {
-	    IDL_tree ident = IDL_LIST (inheritance_spec).data;
-	    
-	    desc->base_interfaces._buffer[i] = IDL_IDENT_REPO_ID (ident);
-	    inheritance_spec = IDL_LIST (inheritance_spec).next;
+	    for (i=0; i<desc->base_interfaces._length; i++) {
+		IDL_tree ident = IDL_LIST (inheritance_spec).data;
+		
+		desc->base_interfaces._buffer[i] = IDL_IDENT_REPO_ID (ident);
+		inheritance_spec = IDL_LIST (inheritance_spec).next;
+	    }
+	} else {
+	    desc->base_interfaces._length = 1;
+	    desc->base_interfaces._buffer = 
+		CORBA_sequence_CORBA_RepositoryId_allocbuf (desc->base_interfaces._length);
+	    desc->base_interfaces._release = TRUE;
+	    desc->base_interfaces._buffer[0] = "IDL:CORBA/Object:1.0";
 	}
 	
 	/* We don't need the following fields */
@@ -1033,7 +1046,7 @@ define_interface (IDL_tree tree, InterfaceData *idata)
 	CORBA_exception_init (&ev);
 	porbit_init_interface (desc, abs_name, &ev);
 	if (ev._major != CORBA_NO_EXCEPTION) {
-	    warn ("Registering interface '%s' failed!\n", abs_name);
+	    warn ("Registering interface '%s' failed!", abs_name);
 	    CORBA_exception_free (&ev);
 	}
 
@@ -1041,8 +1054,10 @@ define_interface (IDL_tree tree, InterfaceData *idata)
 }
 
 static gboolean
-tree_post_func (IDL_tree_func_data *tfd, gpointer user_data)
+tree_post_func (IDL_tree_func_data *tfd, gpointer caller_)
 {
+    const char *caller = (const char *)caller_;
+
     if (IDL_NODE_TYPE (tfd->tree) == IDLN_INTERFACE) {
 	define_interface (tfd->tree, tfd->data);
     }
@@ -1073,7 +1088,9 @@ tree_post_func (IDL_tree_func_data *tfd, gpointer user_data)
 }
 
 CORBA_boolean
-porbit_parse_idl_file (const char *file)
+porbit_parse_idl_file (const char *file,
+		       const char *includes,
+		       const char *caller)
 {
   IDL_tree tree;
   IDL_ns ns;
@@ -1085,7 +1102,7 @@ porbit_parse_idl_file (const char *file)
    * is #pragma push inhibit, which breaks us badly, since
    * we can't rely on the definitions in some C library!
    */
-  ret = IDL_parse_filename (file, "", NULL, &tree, &ns,
+  ret = IDL_parse_filename (file, includes, NULL, &tree, &ns,
 			    IDLF_TYPECODES | IDLF_CODEFRAGS,
 			    IDL_WARNING1);
 
@@ -1096,7 +1113,7 @@ porbit_parse_idl_file (const char *file)
       warn ("Error parsing IDL: %s", g_strerror (errno));
   }
 
-  IDL_tree_walk (tree, NULL, tree_pre_func, tree_post_func, NULL);
+  IDL_tree_walk (tree, NULL, tree_pre_func, tree_post_func, (gpointer)caller);
 
   IDL_tree_free (tree);
   IDL_ns_free (ns);

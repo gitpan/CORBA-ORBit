@@ -7,7 +7,7 @@
 #include "types.h"
 
 #define RECV_BUFFER_LEFT(buf) \
- (((guchar *)buf->message_body + GIOP_MESSAGE_BUFFER(buf)->message_header.message_size) - (guchar *)buf->cur)
+ (((guchar *)buf->message_body + 12 + GIOP_MESSAGE_BUFFER(buf)->message_header.message_size) - (guchar *)buf->cur)
 
 
 static CORBA_boolean
@@ -137,7 +137,7 @@ get_longlong (GIOPRecvBuffer *buf)
     CORBA_long_long v;
 
     if (buf_getn (buf, &v, sizeof (v)))
-	return ll_from_longlong (v);
+	return porbit_ll_from_longlong (v);
     else
 	return NULL;
 }
@@ -148,7 +148,7 @@ get_ulonglong (GIOPRecvBuffer *buf)
     CORBA_unsigned_long_long v;
 
     if (buf_getn (buf, &v, sizeof (v)))
-	return ull_from_ulonglong (v);
+	return porbit_ull_from_ulonglong (v);
     else
 	return NULL;
 }
@@ -161,7 +161,7 @@ get_longdouble (GIOPRecvBuffer *buf)
     /* FIXME: typical ORBit float/double breakage
      */
     if (buf_getn (buf, &v, sizeof (v)))
-	return ld_from_longdouble (v);
+	return porbit_ld_from_longdouble (v);
     else
 	return NULL;
 }
@@ -218,6 +218,11 @@ get_sequence (GIOPRecvBuffer *buf, CORBA_TypeCode tc)
     if (tc->subtypes[0]->kind == CORBA_tk_octet ||
 	tc->subtypes[0]->kind == CORBA_tk_char) {
 
+        if (RECV_BUFFER_LEFT (buf) < len) {
+	    warn ("incomplete message received");
+	    return NULL;
+	}
+    
 	res = newSV(len+1);
 	SvCUR_set(res, len);
 	SvPOK_on (res);
@@ -289,13 +294,18 @@ porbit_get_exception (GIOPRecvBuffer *buf, CORBA_TypeCode tc,
     if (!buf_getn (buf, &str_len, sizeof (str_len)))
 	return NULL;
 
+    if (RECV_BUFFER_LEFT (buf) < str_len) {
+	warn ("incomplete message received");
+	return NULL;
+    }
+    
     if (*((char *)buf->cur + str_len - 1) != '\0') {
 	warn ("Unterminated repository ID in exception");
 	return NULL;
     }
 
     repoid = (char *)buf->cur;
-    buf->cur += str_len;
+    buf->cur = (guchar *)buf->cur + str_len;
 
     if (type == CORBA_USER_EXCEPTION) {
 	CORBA_unsigned_long i;
@@ -406,7 +416,6 @@ get_any (GIOPRecvBuffer *buf, CORBA_TypeCode tc)
     HV *stash;
     
     ORBit_decode_CORBA_TypeCode(&res_tc, buf);
-    CORBA_Object_duplicate((CORBA_Object)res_tc, NULL);
 
     av = newAV();
 
@@ -443,18 +452,28 @@ get_string (GIOPRecvBuffer *buf, CORBA_TypeCode tc)
     if (!buf_getn (buf, &len, sizeof (len)))
 	return NULL;
 
+    if (len == 0) {
+        warn ("string received with illegal 0 length");
+	return NULL;
+    }
+    
     if (tc->length != 0 && len-1 > tc->length) {
 	warn ("string received is longer than typecode allows");
 	return NULL;
     }
 
+    if (RECV_BUFFER_LEFT (buf) < len) {
+	warn ("incomplete message received");
+	return NULL;
+    }
+    
     res = newSV(len);
     SvCUR_set(res, len-1);
     SvPOK_on (res);
     strbuf = SvPVX(res);
 
     memcpy (strbuf, buf->cur, len);
-    buf->cur += len;
+    buf->cur = (guchar *)buf->cur + len;
 
     /* This should already be a NULL according to the spec
      * but we'll play it safe here.
@@ -487,7 +506,7 @@ get_fixed (GIOPRecvBuffer *buf, CORBA_TypeCode tc)
 
     index = 1;
     for (i = 0; i < wire_length; i++) {
-        CORBA_octet c = *(char *)(buf->cur++);
+        CORBA_octet c = *(char *)(buf->cur = (guchar *)buf->cur + 1);
 
 	if (!(i == 0 && offset))
 	    SvPVX(digits_sv)[index++] = '0' + ((c & 0xf0) >> 4);
@@ -515,6 +534,8 @@ get_fixed (GIOPRecvBuffer *buf, CORBA_TypeCode tc)
 	
 	return NULL;
     }
+
+    PUTBACK;
 
     return newSVsv(POPs);
 }
