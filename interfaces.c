@@ -491,47 +491,47 @@ porbit_init_interfaces (void)
 void
 porbit_init_typecodes  (void)
 {
-    porbit_store_typecode ("IDL:CORBA/Null:1.0",
+    porbit_store_typecode ("IDL:omg.org/CORBA/Null:1.0",
 			   duplicate_typecode(TC_null));
-    porbit_store_typecode ("IDL:CORBA/Void:1.0",
+    porbit_store_typecode ("IDL:omg.org/CORBA/Void:1.0",
 			   duplicate_typecode(TC_void));
-    porbit_store_typecode ("IDL:CORBA/Short:1.0", 
+    porbit_store_typecode ("IDL:omg.org/CORBA/Short:1.0", 
 			   duplicate_typecode(TC_CORBA_short));
-    porbit_store_typecode ("IDL:CORBA/Long:1.0", 
+    porbit_store_typecode ("IDL:omg.org/CORBA/Long:1.0", 
 			   duplicate_typecode(TC_CORBA_long));
-    porbit_store_typecode ("IDL:CORBA/LongLong:1.0", 
+    porbit_store_typecode ("IDL:omg.org/CORBA/LongLong:1.0", 
 			   duplicate_typecode(TC_CORBA_longlong));
-    porbit_store_typecode ("IDL:CORBA/UShort:1.0", 
+    porbit_store_typecode ("IDL:omg.org/CORBA/UShort:1.0", 
 			   duplicate_typecode(TC_CORBA_ushort));
-    porbit_store_typecode ("IDL:CORBA/ULong:1.0", 
+    porbit_store_typecode ("IDL:omg.org/CORBA/ULong:1.0", 
 			   duplicate_typecode(TC_CORBA_ulong));
-    porbit_store_typecode ("IDL:CORBA/ULongLong:1.0", 
+    porbit_store_typecode ("IDL:omg.org/CORBA/ULongLong:1.0", 
 			   duplicate_typecode(TC_CORBA_ulonglong));
-    porbit_store_typecode ("IDL:CORBA/Float:1.0", 
+    porbit_store_typecode ("IDL:omg.org/CORBA/Float:1.0", 
 			   duplicate_typecode(TC_CORBA_float));
-    porbit_store_typecode ("IDL:CORBA/Double:1.0", 
+    porbit_store_typecode ("IDL:omg.org/CORBA/Double:1.0", 
 			   duplicate_typecode(TC_CORBA_double));
-    porbit_store_typecode ("IDL:CORBA/LongDouble:1.0", 
+    porbit_store_typecode ("IDL:omg.org/CORBA/LongDouble:1.0", 
 			   duplicate_typecode(TC_CORBA_longdouble));
-    porbit_store_typecode ("IDL:CORBA/Boolean:1.0", 
+    porbit_store_typecode ("IDL:omg.org/CORBA/Boolean:1.0", 
 			   duplicate_typecode(TC_CORBA_boolean));
-    porbit_store_typecode ("IDL:CORBA/Char:1.0", 
+    porbit_store_typecode ("IDL:omg.org/CORBA/Char:1.0", 
 			   duplicate_typecode(TC_CORBA_char));
-    porbit_store_typecode ("IDL:CORBA/WChar:1.0", 
+    porbit_store_typecode ("IDL:omg.org/CORBA/WChar:1.0", 
 			   duplicate_typecode(TC_CORBA_wchar));
-    porbit_store_typecode ("IDL:CORBA/Octet:1.0", 
+    porbit_store_typecode ("IDL:omg.org/CORBA/Octet:1.0", 
 			   duplicate_typecode(TC_CORBA_octet));
-    porbit_store_typecode ("IDL:CORBA/Any:1.0", 
+    porbit_store_typecode ("IDL:omg.org/CORBA/Any:1.0", 
 			   duplicate_typecode(TC_CORBA_any));
-    porbit_store_typecode ("IDL:CORBA/TypeCode:1.0", 
+    porbit_store_typecode ("IDL:omg.org/CORBA/TypeCode:1.0", 
 			   duplicate_typecode(TC_CORBA_TypeCode));
-    porbit_store_typecode ("IDL:CORBA/Principal:1.0", 
+    porbit_store_typecode ("IDL:omg.org/CORBA/Principal:1.0", 
 			   duplicate_typecode(TC_CORBA_Principal));
-    porbit_store_typecode ("IDL:CORBA/Object:1.0", 
+    porbit_store_typecode ("IDL:omg.org/CORBA/Object:1.0", 
 			   duplicate_typecode(TC_CORBA_Object));
-    porbit_store_typecode ("IDL:CORBA/String:1.0", 
+    porbit_store_typecode ("IDL:omg.org/CORBA/String:1.0", 
 			   duplicate_typecode(TC_CORBA_string));
-    porbit_store_typecode ("IDL:CORBA/WString:1.0", 
+    porbit_store_typecode ("IDL:omg.org/CORBA/WString:1.0", 
 			   duplicate_typecode(TC_CORBA_wstring));
 }
 

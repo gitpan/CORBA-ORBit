@@ -1,3 +1,25 @@
+Sat May 25 21:35:28 JST 2002  Huw Rogers  <balkanaan@users.sourceforge.net>
+
+	* up version to 0.4.5 (prepare for 0.4.5 release)
+
+Sat May 25 21:22:32 JST 2002  Huw Rogers  <balkanaan@users.sourceforge.net>
+
+	* fixed libIDL include directory inclusion
+
+Tue May 14 15:37:44 JST 2002  Huw Rogers  <balkanaan@users.sourceforge.net>
+
+	* fixed -w test (PL_dowarn & G_WARN_ON)
+
+	* fixed marshalling of union with undefined discriminator value
+
+	* fixed handling of unions with boolean discriminator
+
+Mon May 13 17:22:59 JST 2002  Huw Rogers  <balkanaan@users.sourceforge.net>
+
+	* prefixed repository IDs with omg.org
+
+	* fixed marshalling of a null character
+
 Sat May  4 23:48:42 2002  Huw Rogers  <rogers@building2.co.jp>
 
 	* require ORBit 0.5.13 in Makefile.PL

@@ -534,7 +534,7 @@ get_union_typecode (IDL_tree tree)
 			       IDL_INTEGER(label).value);
 		   CASE_MEMBER(CORBA_tk_boolean,
 			       CORBA_boolean,
-			       IDL_INTEGER(label).value);
+			       IDL_BOOLEAN(label).value);
 		   CASE_MEMBER(CORBA_tk_char,
 			       CORBA_char,
 			       *IDL_CHAR(label).value);

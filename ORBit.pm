@@ -15,7 +15,7 @@ require Carp;
 
 @ISA = qw(DynaLoader);
 
-$VERSION = '0.4.4';
+$VERSION = '0.4.5';
 
 bootstrap CORBA::ORBit $VERSION;
 
@@ -90,7 +90,7 @@ sub import {
 
 package CORBA::Any;
 
-$CORBA::Any::TC_null = CORBA::TypeCode->new('IDL:CORBA/Null:1.0');
+$CORBA::Any::TC_null = CORBA::TypeCode->new('IDL:omg.org/CORBA/Null:1.0');
 
 sub new {
     my ($pkg, $tc, $val) = @_;

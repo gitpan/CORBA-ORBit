@@ -95,14 +95,11 @@ put_char (GIOPSendBuffer *buf, SV *sv)
 
     str = SvPV(sv, len);
 
-    if (len < 1) {
-	warn("Character must have length >= 1");
-	return CORBA_FALSE;
-    }
+    if (len < 1)
+	buf_putn (buf, "", 1);
+    else
+	buf_putn (buf, str, 1);
 
-    /* FIXME: Is null character OK?
-     */
-    buf_putn (buf, str, 1);
     return CORBA_TRUE;
 }
 
@@ -192,7 +189,7 @@ put_struct (GIOPSendBuffer *buf, CORBA_TypeCode tc, SV *sv)
     for (i = 0; i<tc->sub_parts; i++) {
 	SV **valp = hv_fetch (hv, (char *)tc->subnames[i], strlen(tc->subnames[i]), 0);
 
-	if (!valp && PL_dowarn)
+	if (!valp && (PL_dowarn & G_WARN_ON))
 	    warn ("Uninitialized structure member '%s'", tc->subnames[i]);
 
 	if (!porbit_put_sv (buf, tc->subtypes[i], valp ? *valp : &PL_sv_undef))
@@ -210,7 +207,7 @@ put_sequence (GIOPSendBuffer *buf, CORBA_TypeCode tc, SV *sv)
     CORBA_unsigned_long len, i;
 
     if (sv == &PL_sv_undef) {
-	if (PL_dowarn)
+	if (PL_dowarn & G_WARN_ON)
 	    warn ("Uninitialized sequence");
         len = 0;
 	buf_putn (buf, &len, sizeof (len));
@@ -384,7 +381,7 @@ porbit_put_exception (GIOPSendBuffer *buf, CORBA_TypeCode tc, SV *sv,
 	for (i = 0; i < tc->sub_parts; i++) {
 	    SV **valp = hv_fetch (hv, (char *)tc->subnames[i], strlen(tc->subnames[i]), 0);
 
-	    if (!valp && PL_dowarn)
+	    if (!valp && (PL_dowarn & G_WARN_ON))
 		warn ("Uninitialized CORBA exception member '%s'", tc->subnames[i]);
 
 	    if (!porbit_put_sv (buf, tc->subtypes[i],
@@ -434,7 +431,7 @@ put_objref (GIOPSendBuffer *buf, CORBA_TypeCode tc, SV *sv)
 static CORBA_boolean
 put_union (GIOPSendBuffer *buf, CORBA_TypeCode tc, SV *sv)
 {
-    SV *discriminator;
+    SV **discriminator;
     SV **valp;
     AV *av;
     CORBA_long arm;
@@ -447,12 +444,17 @@ put_union (GIOPSendBuffer *buf, CORBA_TypeCode tc, SV *sv)
     }
 
     av = (AV *)SvRV(sv);
-    discriminator = *av_fetch(av, 0, 0); 
+    discriminator = av_fetch(av, 0, 0); 
 
-    if (!porbit_put_sv (buf, tc->discriminator, discriminator))
+    if (!discriminator && (PL_dowarn & G_WARN_ON))
+	warn ("Uninitialized union discriminator");
+
+    if (!porbit_put_sv (buf, tc->discriminator,
+	discriminator ? *discriminator : &PL_sv_undef))
 	return CORBA_FALSE;
     
-    arm = porbit_union_find_arm (tc, discriminator);
+    arm = porbit_union_find_arm (tc,
+	discriminator ? *discriminator : &PL_sv_undef);
     if (arm < 0) {
 	warn("union discriminator branch does not match any arm, and no default arm");
 	return CORBA_FALSE;
@@ -469,9 +471,9 @@ put_any (GIOPSendBuffer *buf, CORBA_TypeCode tc, SV *sv)
     CORBA_TypeCode output_tc;
     
     if (sv == &PL_sv_undef) {
-	if (PL_dowarn)
+	if (PL_dowarn & G_WARN_ON)
 	    warn ("Uninitialized CORBA::Any");
-	output_tc = porbit_find_typecode ("IDL:CORBA/Null:1.0");
+	output_tc = porbit_find_typecode ("IDL:omg.org/CORBA/Null:1.0");
 	ORBit_encode_CORBA_TypeCode (output_tc, buf);
 	return CORBA_TRUE;
     }

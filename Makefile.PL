@@ -35,7 +35,11 @@ if (defined $a) {
 }
 
 chomp($orbit_cflags = `orbit-config --cflags client server`);
+if ($orbit_cflags =~ m|-I(\S+)/orbit-(\S+)|) {
+  $orbit_cflags .= " -I$1/libIDL-$2 ";
+}
 chomp($orbit_libs = `orbit-config --libs client server`);
+#$orbit_libs .= ' -R/opt/ORBit/lib ';
 
 if ($] < 5.0045) {
     print STDERR "Using compatibility macros/routines for Perl 5.004\n";
